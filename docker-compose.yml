@@ -1,6 +1,9 @@
+# ============================================
+# 方式一：使用预构建镜像（推荐）
+# ============================================
 services:
   terminus-checkin:
-    build: .
+    image: ghcr.io/zj145013/embycheckin:latest
     container_name: terminus-checkin
     restart: unless-stopped
     environment:
@@ -30,3 +33,14 @@ services:
       - ./logs:/app/logs
     stdin_open: true
     tty: true
+
+# ============================================
+# 方式二：本地构建镜像
+# 取消下面的注释，并注释掉上面的 image 行
+# ============================================
+#   terminus-checkin:
+#     build: .
+#     container_name: terminus-checkin
+#     restart: unless-stopped
+#     environment:
+#       ... (同上)
