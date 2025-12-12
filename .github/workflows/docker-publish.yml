@@ -1,11 +1,8 @@
 name: Build and Push Docker Image
 
 on:
-  push:
-    branches: [main]
-    tags: ['v*']
-  pull_request:
-    branches: [main]
+  # 按仓库约束：禁用自动化 CI/CD，仅保留手动触发
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io

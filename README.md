@@ -1,6 +1,6 @@
 # 终点站 (Terminus) 自动签到
 
-使用 Gemini Vision API 自动识别验证码，完成终点站 Telegram 机器人签到。
+使用可选 AI 提供方（OpenAI / Gemini / Claude）自动识别验证码，完成终点站 Telegram 机器人签到。
 
 ## 功能
 
@@ -8,6 +8,7 @@
 - 每日定时签到
 - 支持 Docker 部署
 - 日志记录
+ - 支持选择 AI 提供方（OpenAI / Gemini / Claude）
 
 ## 快速开始
 
@@ -49,10 +50,23 @@ environment:
   # 首次登录需要填写手机号（带国际区号）
   - PHONE_NUMBER=+8613800138000
 
-  # Gemini API 配置
+  # AI 提供方选择：openai / gemini / claude
+  - AI_PROVIDER=openai
+
+  # OpenAI（或 OpenAI 兼容接口）配置（AI_PROVIDER=openai）
+  - OPENAI_BASE_URL=https://api.openai.com/v1
+  - OPENAI_API_KEY=your_openai_api_key
+  - OPENAI_MODEL=gpt-4o-mini
+
+  # Gemini 官方 REST API 配置（AI_PROVIDER=gemini）
   - GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
   - GEMINI_API_KEY=your_gemini_api_key
   - GEMINI_MODEL=gemini-2.5-flash
+
+  # Claude（Anthropic）配置（AI_PROVIDER=claude）
+  - CLAUDE_BASE_URL=https://api.anthropic.com
+  - CLAUDE_API_KEY=your_claude_api_key
+  - CLAUDE_MODEL=claude-3-5-sonnet-20241022
 
   # 签到时间（24小时制）
   - CHECKIN_HOUR=9
@@ -67,12 +81,21 @@ environment:
 | `API_ID` | Telegram API ID | `2040` |
 | `API_HASH` | Telegram API Hash | (内置) |
 | `PHONE_NUMBER` | 手机号（首次登录需要） | 空 |
-| `GEMINI_BASE_URL` | Gemini API 地址 | Google 官方 |
+| `AI_PROVIDER` | AI 提供方 | `openai` |
+| `OPENAI_BASE_URL` | OpenAI/兼容接口地址 | `https://api.openai.com/v1` |
+| `OPENAI_API_KEY` | OpenAI/兼容接口密钥 | 需配置 |
+| `OPENAI_MODEL` | OpenAI/兼容接口模型 | `gpt-4o-mini` |
+| `GEMINI_BASE_URL` | Gemini REST API 地址 | Google 官方 |
 | `GEMINI_API_KEY` | Gemini API 密钥 | 需配置 |
 | `GEMINI_MODEL` | Gemini 模型 | `gemini-2.5-flash` |
+| `CLAUDE_BASE_URL` | Claude API 地址 | `https://api.anthropic.com` |
+| `CLAUDE_API_KEY` | Claude API 密钥 | 需配置 |
+| `CLAUDE_MODEL` | Claude 模型 | `claude-3-5-sonnet-20241022` |
 | `CHECKIN_HOUR` | 签到时间（小时） | `9` |
 | `CHECKIN_MINUTE` | 签到时间（分钟） | `0` |
 | `RUN_NOW` | 启动时立即签到 | `false` |
+
+> 兼容说明：历史版本用 `GEMINI_BASE_URL/GEMINI_API_KEY/GEMINI_MODEL` 走 OpenAI 兼容的 `/chat/completions` 接口。本版本在 `AI_PROVIDER=openai` 时仍会在 `OPENAI_*` 未配置的情况下回退使用旧变量，但建议尽快切换到 `OPENAI_*` 以避免语义混淆。
 
 ## 常用命令
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 终点站 (Terminus) Telegram 自动签到脚本
-使用 Gemini Vision API 识别验证码
+使用可选 AI 提供方识别验证码（OpenAI / Gemini / Claude）
 """
 
 import asyncio
@@ -28,10 +28,27 @@ API_ID = int(os.getenv("API_ID", "2040"))
 API_HASH = os.getenv("API_HASH", "b18441a1ff607e10a989891a5462e627")
 PHONE_NUMBER = os.getenv("PHONE_NUMBER", "")  # 首次登录需要
 
-# Gemini 配置
-GEMINI_BASE_URL = os.getenv("GEMINI_BASE_URL", "https://geminicli.942645.xyz")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "sk-zjzj5522")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+# ==================== AI 提供方选择 ====================
+# 支持：openai / gemini / claude
+AI_PROVIDER = os.getenv("AI_PROVIDER", "openai").strip().lower()
+
+# OpenAI（或 OpenAI 兼容接口）配置
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").strip()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
+
+# Gemini 官方 REST API 配置
+GEMINI_BASE_URL = os.getenv(
+    "GEMINI_BASE_URL",
+    "https://generativelanguage.googleapis.com/v1beta",
+).strip()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
+
+# Claude（Anthropic）配置
+CLAUDE_BASE_URL = os.getenv("CLAUDE_BASE_URL", "https://api.anthropic.com").strip()
+CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "").strip()
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-20241022").strip()
 
 # 签到配置
 BOT_USERNAME = "EmbyPublicBot"
@@ -57,14 +74,195 @@ logger.add(
 )
 
 
-# ==================== Gemini Vision API ====================
+# ==================== 验证码识别（多提供方） ====================
 
-async def analyze_image_with_gemini(
+def _normalize_answer_text(answer: str) -> str:
+    cleaned = (answer or "").strip()
+    cleaned = cleaned.strip("「」\"'")
+    cleaned = re.sub(r"^[选择]?[项]?[:：]?\s*", "", cleaned)
+    return cleaned.strip()
+
+
+def _build_captcha_prompt(options: list[str]) -> str:
+    options_text = "、".join([f"「{opt}」" for opt in options])
+    return f"""这是一个验证码图片，请仔细观察图片内容。
+
+可选答案有：{options_text}
+
+请根据图片内容，从上述选项中选择最匹配的一个答案。
+只需要回复选项内容本身，不要有任何其他文字、标点或解释。
+
+例如，如果答案是「猫」，就只回复：猫"""
+
+
+def _openai_compat_config_from_env() -> tuple[str, str, str]:
+    """
+    OpenAI（或 OpenAI 兼容接口）配置。
+    为了兼容旧配置：当 OPENAI_* 未设置时，回退使用 GEMINI_BASE_URL / GEMINI_API_KEY / GEMINI_MODEL。
+    """
+    base_url = OPENAI_BASE_URL or GEMINI_BASE_URL
+    api_key = OPENAI_API_KEY or GEMINI_API_KEY
+    model = OPENAI_MODEL or GEMINI_MODEL
+    return base_url, api_key, model
+
+
+async def _analyze_image_openai_compatible(
+    image_base64: str,
+    prompt: str,
+) -> Tuple[Optional[str], Optional[str]]:
+    base_url, api_key, model = _openai_compat_config_from_env()
+    if not api_key:
+        return None, "OPENAI_API_KEY 未配置（或旧变量 GEMINI_API_KEY 未配置）"
+
+    url = f"{base_url.rstrip('/')}/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"},
+                    },
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ],
+        "max_tokens": 100,
+        "temperature": 0.1,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            result = response.json()
+            answer = result["choices"][0]["message"]["content"]
+            return _normalize_answer_text(answer), None
+    except httpx.HTTPStatusError as e:
+        return None, f"OpenAI 兼容接口 HTTP 错误: {e.response.status_code}"
+    except Exception as e:
+        return None, f"OpenAI 兼容接口调用失败: {str(e)}"
+
+
+async def _analyze_image_gemini_official(
+    image_base64: str,
+    prompt: str,
+) -> Tuple[Optional[str], Optional[str]]:
+    if not GEMINI_API_KEY:
+        return None, "GEMINI_API_KEY 未配置"
+
+    # Gemini REST API：POST /v1beta/models/{model}:generateContent?key=...
+    url = f"{GEMINI_BASE_URL.rstrip('/')}/models/{GEMINI_MODEL}:generateContent"
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [
+                    {"text": prompt},
+                    {
+                        "inlineData": {
+                            "mimeType": "image/jpeg",
+                            "data": image_base64,
+                        }
+                    },
+                ],
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.1,
+            "maxOutputTokens": 100,
+        },
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                url,
+                headers=headers,
+                params={"key": GEMINI_API_KEY},
+                json=payload,
+            )
+            response.raise_for_status()
+            result = response.json()
+
+            candidates = result.get("candidates") or []
+            if not candidates:
+                return None, "Gemini 返回为空（无 candidates）"
+
+            parts = (candidates[0].get("content") or {}).get("parts") or []
+            text_parts = [p.get("text", "") for p in parts if isinstance(p, dict)]
+            answer = "".join(text_parts).strip()
+            return _normalize_answer_text(answer), None
+    except httpx.HTTPStatusError as e:
+        return None, f"Gemini API HTTP 错误: {e.response.status_code}"
+    except Exception as e:
+        return None, f"Gemini API 调用失败: {str(e)}"
+
+
+async def _analyze_image_claude(
+    image_base64: str,
+    prompt: str,
+) -> Tuple[Optional[str], Optional[str]]:
+    if not CLAUDE_API_KEY:
+        return None, "CLAUDE_API_KEY 未配置"
+
+    url = f"{CLAUDE_BASE_URL.rstrip('/')}/v1/messages"
+    headers = {
+        "x-api-key": CLAUDE_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    }
+    payload = {
+        "model": CLAUDE_MODEL,
+        "max_tokens": 100,
+        "temperature": 0.1,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/jpeg",
+                            "data": image_base64,
+                        },
+                    },
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ],
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            result = response.json()
+
+            content = result.get("content") or []
+            if not content:
+                return None, "Claude 返回为空（无 content）"
+            answer = content[0].get("text", "")
+            return _normalize_answer_text(answer), None
+    except httpx.HTTPStatusError as e:
+        return None, f"Claude API HTTP 错误: {e.response.status_code}"
+    except Exception as e:
+        return None, f"Claude API 调用失败: {str(e)}"
+
+async def analyze_image(
     image_data: bytes,
     options: list[str]
 ) -> Tuple[Optional[str], Optional[str]]:
     """
-    使用 Gemini Vision API 分析验证码图片
+    使用可选 AI 提供方分析验证码图片
 
     Args:
         image_data: 图片二进制数据
@@ -74,71 +272,23 @@ async def analyze_image_with_gemini(
         (答案, 错误信息)
     """
     try:
-        # 将图片转为 base64
         image_base64 = base64.b64encode(image_data).decode("utf-8")
+        prompt = _build_captcha_prompt(options)
 
-        # 构建 prompt
-        options_text = "、".join([f"「{opt}」" for opt in options])
-        prompt = f"""这是一个验证码图片，请仔细观察图片内容。
+        if AI_PROVIDER == "openai":
+            answer, error = await _analyze_image_openai_compatible(image_base64, prompt)
+        elif AI_PROVIDER == "gemini":
+            answer, error = await _analyze_image_gemini_official(image_base64, prompt)
+        elif AI_PROVIDER == "claude":
+            answer, error = await _analyze_image_claude(image_base64, prompt)
+        else:
+            return None, f"不支持的 AI_PROVIDER: {AI_PROVIDER}（应为 openai/gemini/claude）"
 
-可选答案有：{options_text}
-
-请根据图片内容，从上述选项中选择最匹配的一个答案。
-只需要回复选项内容本身，不要有任何其他文字、标点或解释。
-
-例如，如果答案是「猫」，就只回复：猫"""
-
-        # 构建请求
-        url = f"{GEMINI_BASE_URL}/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {GEMINI_API_KEY}",
-            "Content-Type": "application/json",
-        }
-
-        payload = {
-            "model": GEMINI_MODEL,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{image_base64}"
-                            }
-                        },
-                        {
-                            "type": "text",
-                            "text": prompt
-                        }
-                    ]
-                }
-            ],
-            "max_tokens": 100,
-            "temperature": 0.1,
-        }
-
-        async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.post(url, headers=headers, json=payload)
-            response.raise_for_status()
-
-            result = response.json()
-            answer = result["choices"][0]["message"]["content"].strip()
-
-            # 清理答案（去除可能的引号、空格等）
-            answer = answer.strip("「」\"'""''")
-            answer = re.sub(r'^[选择]?[项]?[:：]?\s*', '', answer)
-
-            logger.debug(f"Gemini 原始回答: {answer}")
-
-            return answer, None
-
-    except httpx.HTTPStatusError as e:
-        error_msg = f"Gemini API HTTP 错误: {e.response.status_code}"
-        logger.error(error_msg)
-        return None, error_msg
+        if answer:
+            logger.debug(f"AI({AI_PROVIDER}) 原始回答: {answer}")
+        return answer, error
     except Exception as e:
-        error_msg = f"Gemini API 调用失败: {str(e)}"
+        error_msg = f"AI 调用失败: {str(e)}"
         logger.error(error_msg)
         return None, error_msg
 
@@ -372,7 +522,7 @@ class TerminusCheckin:
                 image_bytes = photo_data
 
             # 调用 Gemini 识别
-            answer, error = await analyze_image_with_gemini(image_bytes, options_cleaned)
+            answer, error = await analyze_image(image_bytes, options_cleaned)
 
             if error:
                 logger.error(f"验证码识别失败: {error}")
