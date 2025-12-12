@@ -8,7 +8,7 @@ services:
     # 如需原生架构运行，请使用下方“方式二：本地构建镜像”
     platform: linux/amd64
     container_name: terminus-checkin
-    restart: unless-stopped
+    restart: always
     environment:
       # 首次登录需要填写手机号（带国际区号，如 +8613800138000）
       # 登录成功后可以删除或留空

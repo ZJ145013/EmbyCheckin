@@ -14,7 +14,7 @@
 
 ### 方式零：可视化配置器（推荐给小白）
 
-适用于 Mac / Windows / Ubuntu。通过浏览器填写表单，自动生成 `.env`（含密钥）与 `docker-compose.local.yml`，无需手动编辑 YAML。
+适用于 Mac / Windows / Ubuntu。通过浏览器填写表单，自动生成 `.env`（含密钥）与 `docker-compose.yml`，无需手动编辑 YAML。
 
 ```bash
 # 1. 克隆仓库
@@ -26,13 +26,13 @@ python3 tools/config_ui.py
 
 # 3. 打开浏览器访问
 # http://127.0.0.1:8765/
-# 按页面提示生成 .env + docker-compose.local.yml
+# 按页面提示生成 .env + docker-compose.yml
 
 # 4. 首次登录（交互式）
-docker compose -f docker-compose.local.yml run -it terminus-checkin
+docker compose run -it terminus-checkin
 
 # 5. 后台运行
-docker compose -f docker-compose.local.yml up -d
+docker compose up -d
 ```
 
 ## Docker 集成配置器（首次部署模式）
@@ -87,7 +87,7 @@ docker-compose up --build
 
 ## 配置说明
 
-如果你不想手动编辑配置，优先使用上面的“方式零：可视化配置器”，它会生成 `.env + docker-compose.local.yml`（更适合小白且避免空值覆盖）。
+如果你不想手动编辑配置，优先使用上面的“方式零：可视化配置器”，它会生成 `.env + docker-compose.yml`（更适合小白且避免空值覆盖）。
 
 编辑 `docker-compose.yml`：
 

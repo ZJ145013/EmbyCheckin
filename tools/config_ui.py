@@ -3,7 +3,7 @@
 浏览器配置器（零第三方依赖）
 
 用途：
-- 通过浏览器表单生成 `.env`（包含密钥）与 `docker-compose.local.yml`
+- 通过浏览器表单生成 `.env`（包含密钥）与 `docker-compose.yml`
 - 面向小白：不需要编辑 YAML/环境变量
 
 说明：
@@ -52,7 +52,7 @@ DEFAULTS: dict[str, Any] = {
     "PLATFORM_AMD64": "true",
 }
 
-UI_VERSION = "2025-12-13.4"
+UI_VERSION = "2025-12-13.5"
 
 
 def _to_bool(raw: str, default: bool = False) -> bool:
@@ -256,7 +256,7 @@ def _build_compose(form: dict[str, str]) -> str:
     lines.extend(
         [
             "    container_name: terminus-checkin",
-            "    restart: unless-stopped",
+            "    restart: always",
             "    ports:",
             '      - "127.0.0.1:8765:8765"',
             "    env_file:",
@@ -536,7 +536,7 @@ def _render_form(values: dict[str, str], errors: Optional[list[str]] = None) -> 
 <div class="header">
   <div>
     <h1>EmbyCheckin 可视化配置器</h1>
-    <div class="tagline">生成 <code>.env</code>（含密钥）与 <code>docker-compose.local.yml</code>，默认按官方协议、非流式。</div>
+    <div class="tagline">生成 <code>.env</code>（含密钥）与 <code>docker-compose.yml</code>，默认按官方协议、非流式。</div>
     <div class="tagline">为避免刷新丢失，页面会把填写内容保存在本机浏览器（localStorage）；点“重置为默认”可清空。</div>
     <div class="tagline">版本：<code>{html.escape(UI_VERSION)}</code></div>
   </div>
@@ -807,12 +807,12 @@ def _render_success(output_dir: str) -> bytes:
 </div>
 <ul>
   <li><code>.env</code></li>
-  <li><code>docker-compose.local.yml</code></li>
+  <li><code>docker-compose.yml</code></li>
 </ul>
 <h2>下一步</h2>
-<pre id="cmd">docker compose -f docker-compose.local.yml up -d
+<pre id="cmd">docker compose up -d
 # 或旧版
-docker-compose -f docker-compose.local.yml up -d</pre>
+docker-compose up -d</pre>
 <div class="actions">
   <button type="button" onclick="copyText('cmd')">复制启动命令</button>
   <button type="button" class="secondary" onclick="window.location.href='/'">返回继续修改</button>
@@ -880,7 +880,7 @@ class _Handler(BaseHTTPRequestHandler):
         force = _to_bool(form.get("FORCE_OVERWRITE", "false"))
 
         env_path = os.path.join(output_dir, ".env")
-        compose_path = os.path.join(output_dir, "docker-compose.local.yml")
+        compose_path = os.path.join(output_dir, "docker-compose.yml")
 
         for path in [env_path, compose_path]:
             if os.path.exists(path) and not force:
@@ -906,12 +906,7 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self._safe_write(
-            _page_template(
-                "生成成功",
-                _render_success_body(output_dir, form),
-            )
-        )
+        self._safe_write(_page_template("生成成功", _render_success_body(output_dir, form)))
 
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
         # 保持终端输出简洁
@@ -939,7 +934,7 @@ def main() -> int:
     parser.add_argument(
         "--output-dir",
         default=".",
-        help="输出目录（生成 .env 与 docker-compose.local.yml，默认当前目录）",
+        help="输出目录（生成 .env 与 docker-compose.yml，默认当前目录）",
     )
     args = parser.parse_args()
 
@@ -966,13 +961,14 @@ def _render_success_body(output_dir: str, form: dict[str, str]) -> str:
 </div>
 <ul>
   <li><code>.env</code>（预览已脱敏）</li>
-  <li><code>docker-compose.local.yml</code></li>
+  <li><code>docker-compose.yml</code></li>
 </ul>
 
 <h2>启动命令</h2>
-<pre id="cmd">docker compose -f docker-compose.local.yml up -d
+<pre id="cmd">cd {html.escape(output_dir)}
+docker compose up -d
 # 或旧版
-docker-compose -f docker-compose.local.yml up -d</pre>
+docker-compose up -d</pre>
 <div class="actions">
   <button type="button" onclick="copyText('cmd')">复制启动命令</button>
   <button type="button" class="secondary" onclick="window.location.href='/'">返回继续修改</button>
@@ -984,7 +980,7 @@ docker-compose -f docker-compose.local.yml up -d</pre>
   <button type="button" class="secondary" onclick="copyText('env_preview')">复制 .env 预览</button>
 </div>
 
-<h2>docker-compose.local.yml 预览</h2>
+<h2>docker-compose.yml 预览</h2>
 <pre id="compose_preview">{compose_preview}</pre>
 <div class="actions">
   <button type="button" class="secondary" onclick="copyText('compose_preview')">复制 compose 预览</button>
