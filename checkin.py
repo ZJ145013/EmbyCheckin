@@ -5,21 +5,41 @@
 """
 
 import asyncio
+import argparse
 import base64
 import json
 import os
 import random
 import re
+import ssl
 import sys
 from datetime import datetime, time, timedelta
 from io import BytesIO
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional, Tuple
 
-import httpx
-from loguru import logger
-from pyrogram import Client, filters
-from pyrogram.types import Message
-from pyrogram.errors import FloodWait, RPCError
+try:
+    import httpx
+except ModuleNotFoundError as e:
+    raise SystemExit(
+        "缺少依赖 httpx，无法调用 AI 接口。\n"
+        "请先安装最小依赖：pip install 'httpx==0.27.0' 'loguru==0.7.2'\n"
+        "或直接使用 Docker 镜像在容器内运行。"
+    ) from e
+
+try:
+    from loguru import logger
+except ModuleNotFoundError as e:
+    raise SystemExit(
+        "缺少依赖 loguru，无法输出日志。\n"
+        "请先安装最小依赖：pip install 'httpx==0.27.0' 'loguru==0.7.2'"
+    ) from e
+
+if TYPE_CHECKING:
+    from pyrogram import Client  # pragma: no cover
+    from pyrogram.types import Message  # pragma: no cover
+else:
+    Client = Any
+    Message = Any
 
 # ==================== 配置 ====================
 
@@ -49,6 +69,305 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
 CLAUDE_BASE_URL = os.getenv("CLAUDE_BASE_URL", "https://api.anthropic.com").strip()
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "").strip()
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-20241022").strip()
+
+# ==================== TLS/证书（httpx）配置 ====================
+
+def _env_get_optional(name: str) -> Optional[str]:
+    if name not in os.environ:
+        return None
+    return os.environ.get(name, "").strip()
+
+
+def _parse_env_bool(name: str, default: bool) -> bool:
+    raw = _env_get_optional(name)
+    if raw is None or raw == "":
+        return default
+    normalized = raw.strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    logger.warning(f"环境变量 {name} 值非法：{raw!r}，将按默认值 {default} 处理")
+    return default
+
+
+def _parse_env_int(name: str, default: int) -> int:
+    raw = _env_get_optional(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        logger.warning(f"环境变量 {name} 值非法：{raw!r}，将按默认值 {default} 处理")
+        return default
+
+
+def _httpx_verify_from_env(provider: str) -> Tuple[object, Optional[str]]:
+    """
+    统一处理 httpx TLS 校验配置。
+
+    规则：
+    - 默认校验证书（不降低安全基线）
+    - 支持通过 CA 文件/目录信任企业代理或自签证书
+    - 仅在显式设置 *_SSL_VERIFY=false 时关闭校验（不推荐）
+
+    环境变量（provider 为 OPENAI/GEMINI/CLAUDE）：
+    - AI_SSL_VERIFY（全局开关，默认 true）
+    - AI_CA_FILE / AI_CA_DIR（全局 CA 文件/目录）
+    - {provider}_SSL_VERIFY / {provider}_CA_FILE / {provider}_CA_DIR（单提供方覆盖）
+    """
+    provider = (provider or "").strip().upper()
+    if not provider:
+        return True, "TLS 配置错误：provider 为空"
+
+    ssl_verify = _parse_env_bool(
+        f"{provider}_SSL_VERIFY",
+        _parse_env_bool("AI_SSL_VERIFY", True),
+    )
+    if not ssl_verify:
+        return False, None
+
+    ca_file = _env_get_optional(f"{provider}_CA_FILE")
+    if ca_file is None:
+        ca_file = _env_get_optional("AI_CA_FILE") or ""
+    ca_dir = _env_get_optional(f"{provider}_CA_DIR")
+    if ca_dir is None:
+        ca_dir = _env_get_optional("AI_CA_DIR") or ""
+
+    if ca_file:
+        if not os.path.isfile(ca_file):
+            return True, f"{provider}_CA_FILE 指向的文件不存在：{ca_file}"
+        return ca_file, None
+    if ca_dir:
+        if not os.path.isdir(ca_dir):
+            return True, f"{provider}_CA_DIR 指向的目录不存在：{ca_dir}"
+        return ca_dir, None
+
+    return True, None
+
+
+def _is_cert_verify_failed(exc: Exception) -> bool:
+    if isinstance(exc, ssl.SSLCertVerificationError):
+        return True
+    msg = str(exc)
+    return ("CERTIFICATE_VERIFY_FAILED" in msg) or ("certificate verify failed" in msg.lower())
+
+
+def _tls_troubleshooting_hint(provider: str) -> str:
+    provider = (provider or "").strip().upper()
+    return (
+        f"{provider} API SSL 证书校验失败（常见于企业代理/自签证书）。"
+        f"建议：1) 配置 {provider}_CA_FILE=/path/to/ca.pem 或 {provider}_CA_DIR=/path/to/certs；"
+        f"2) 或配置全局 AI_CA_FILE/AI_CA_DIR；"
+        f"3) 临时（不推荐）设置 {provider}_SSL_VERIFY=false 关闭校验。"
+    )
+
+
+def _normalize_gemini_base_url(base_url: str) -> str:
+    """
+    兼容两类写法：
+    - 直接给完整版本前缀：https://host/v1beta
+    - 只给 host：https://host（将自动补 /v1beta）
+    """
+    raw = (base_url or "").strip().rstrip("/")
+    if not raw:
+        return "https://generativelanguage.googleapis.com/v1beta"
+    if ("/v1beta" in raw) or ("/v1" in raw):
+        return raw
+    return f"{raw}/v1beta"
+
+
+def _gemini_auth_mode_from_env() -> str:
+    # 官方与多数网关都支持 `x-goog-api-key`，且避免 key 出现在 URL，默认用 header
+    mode = os.getenv("GEMINI_API_KEY_MODE", "header").strip().lower()
+    if mode not in {"query", "header", "both"}:
+        logger.warning(f"环境变量 GEMINI_API_KEY_MODE 值非法：{mode!r}，将回退为 'query'")
+        return "query"
+    return mode
+
+
+def _gemini_use_stream_from_env() -> bool:
+    return _parse_env_bool("GEMINI_USE_STREAM", False)
+
+
+def _gemini_extra_headers_from_env() -> dict[str, str]:
+    headers: dict[str, str] = {}
+    http_referer = _env_get_optional("GEMINI_HTTP_REFERER")
+    if http_referer:
+        headers["http-referer"] = http_referer
+    x_title = _env_get_optional("GEMINI_X_TITLE")
+    if x_title:
+        headers["x-title"] = x_title
+    user_agent = _env_get_optional("GEMINI_USER_AGENT")
+    if user_agent:
+        headers["user-agent"] = user_agent
+    return headers
+
+
+def _extract_gemini_answer_from_response_obj(obj: dict) -> tuple[str, Optional[str]]:
+    candidates = obj.get("candidates") or []
+    if not candidates:
+        return "", "Gemini 返回为空（无 candidates）"
+    parts = (candidates[0].get("content") or {}).get("parts") or []
+    text_parts: list[str] = []
+    for part in parts:
+        if isinstance(part, str):
+            text_parts.append(part)
+            continue
+        if not isinstance(part, dict):
+            continue
+        text = part.get("text")
+        if isinstance(text, str) and text.strip():
+            text_parts.append(text)
+            continue
+        thought = part.get("thought")
+        if isinstance(thought, str) and thought.strip():
+            text_parts.append(thought)
+    return "".join(text_parts).strip(), None
+
+
+def _extract_gemini_answer_from_sse_text(sse_text: str) -> tuple[str, Optional[str]]:
+    """
+    解析 `text/event-stream`（SSE）返回：累积所有 data: JSON 片段中的文本。
+    """
+    accumulated = []
+    for raw_line in (sse_text or "").splitlines():
+        line = raw_line.strip()
+        if not line.startswith("data:"):
+            continue
+        data = line[len("data:") :].strip()
+        if not data or data == "[DONE]":
+            continue
+        try:
+            obj = json.loads(data)
+        except json.JSONDecodeError:
+            continue
+        chunk, _ = _extract_gemini_answer_from_response_obj(obj)
+        if chunk:
+            accumulated.append(chunk)
+    answer = "".join(accumulated).strip()
+    if not answer:
+        return "", "Gemini SSE 返回为空（无可解析 data 文本）"
+    return answer, None
+
+
+def _openai_use_stream_from_env() -> bool:
+    return _parse_env_bool("OPENAI_USE_STREAM", False)
+
+
+def _openai_stream_include_usage_from_env() -> bool:
+    return _parse_env_bool("OPENAI_STREAM_INCLUDE_USAGE", True)
+
+
+def _openai_extra_headers_from_env() -> dict[str, str]:
+    headers: dict[str, str] = {}
+    http_referer = _env_get_optional("OPENAI_HTTP_REFERER")
+    if http_referer:
+        headers["http-referer"] = http_referer
+    x_title = _env_get_optional("OPENAI_X_TITLE")
+    if x_title:
+        headers["x-title"] = x_title
+    user_agent = _env_get_optional("OPENAI_USER_AGENT")
+    if user_agent:
+        headers["user-agent"] = user_agent
+    return headers
+
+
+def _extract_openai_chat_answer_from_response_obj(obj: dict) -> tuple[str, Optional[str]]:
+    choices = obj.get("choices") or []
+    if not choices:
+        return "", "OpenAI 兼容接口返回为空（无 choices）"
+    message = (choices[0] or {}).get("message") or {}
+    content = message.get("content") or ""
+    return str(content).strip(), None
+
+
+def _extract_openai_chat_answer_from_sse_text(sse_text: str) -> tuple[str, Optional[str]]:
+    """
+    解析 OpenAI Chat Completions 的 SSE：累积 choices[].delta.content。
+    """
+    accumulated: list[str] = []
+    for raw_line in (sse_text or "").splitlines():
+        line = raw_line.strip()
+        if not line.startswith("data:"):
+            continue
+        data = line[len("data:") :].strip()
+        if not data or data == "[DONE]":
+            continue
+        try:
+            obj = json.loads(data)
+        except json.JSONDecodeError:
+            continue
+        for choice in obj.get("choices") or []:
+            delta = (choice or {}).get("delta") or {}
+            content = delta.get("content")
+            if content:
+                accumulated.append(str(content))
+    answer = "".join(accumulated).strip()
+    if not answer:
+        return "", "OpenAI 兼容接口 SSE 返回为空（无可解析 delta.content）"
+    return answer, None
+
+
+def _claude_use_stream_from_env() -> bool:
+    return _parse_env_bool("CLAUDE_USE_STREAM", False)
+
+
+def _claude_extra_headers_from_env() -> dict[str, str]:
+    headers: dict[str, str] = {}
+    http_referer = _env_get_optional("CLAUDE_HTTP_REFERER")
+    if http_referer:
+        headers["http-referer"] = http_referer
+    x_title = _env_get_optional("CLAUDE_X_TITLE")
+    if x_title:
+        headers["x-title"] = x_title
+    user_agent = _env_get_optional("CLAUDE_USER_AGENT")
+    if user_agent:
+        headers["user-agent"] = user_agent
+    return headers
+
+
+def _claude_thinking_from_env() -> Optional[dict]:
+    if not _parse_env_bool("CLAUDE_THINKING_ENABLED", False):
+        return None
+    budget = _parse_env_int("CLAUDE_THINKING_BUDGET_TOKENS", 1024)
+    return {"type": "enabled", "budget_tokens": budget}
+
+
+def _extract_claude_answer_from_sse_text(sse_text: str) -> tuple[str, Optional[str]]:
+    """
+    解析 Anthropic /v1/messages 的 SSE：累积 content_block_* 事件中的文本。
+    """
+    accumulated: list[str] = []
+    for raw_line in (sse_text or "").splitlines():
+        line = raw_line.strip()
+        if not line.startswith("data:"):
+            continue
+        data = line[len("data:") :].strip()
+        if not data or data == "[DONE]":
+            continue
+        try:
+            obj = json.loads(data)
+        except json.JSONDecodeError:
+            continue
+
+        event_type = obj.get("type")
+        if event_type == "content_block_delta":
+            delta = obj.get("delta") or {}
+            text = delta.get("text")
+            if text:
+                accumulated.append(str(text))
+        elif event_type == "content_block_start":
+            content_block = obj.get("content_block") or {}
+            text = content_block.get("text")
+            if text:
+                accumulated.append(str(text))
+
+    answer = "".join(accumulated).strip()
+    if not answer:
+        return "", "Claude SSE 返回为空（无可解析 content_block 文本）"
+    return answer, None
+
 
 # 签到配置
 BOT_USERNAME = "EmbyPublicBot"
@@ -95,6 +414,23 @@ def _build_captcha_prompt(options: list[str]) -> str:
 例如，如果答案是「猫」，就只回复：猫"""
 
 
+def _guess_image_mime_type(image_data: bytes) -> str:
+    """
+    基于文件头做最小集合的图片类型识别，避免硬编码 image/jpeg 导致 PNG/WebP 截图无法解析。
+    """
+    if not image_data:
+        return "application/octet-stream"
+    if image_data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if image_data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if image_data.startswith(b"GIF87a") or image_data.startswith(b"GIF89a"):
+        return "image/gif"
+    if len(image_data) >= 12 and image_data[0:4] == b"RIFF" and image_data[8:12] == b"WEBP":
+        return "image/webp"
+    return "application/octet-stream"
+
+
 def _openai_compat_config_from_env() -> tuple[str, str, str]:
     """
     OpenAI（或 OpenAI 兼容接口）配置。
@@ -109,6 +445,7 @@ def _openai_compat_config_from_env() -> tuple[str, str, str]:
 async def _analyze_image_openai_compatible(
     image_base64: str,
     prompt: str,
+    mime_type: str,
 ) -> Tuple[Optional[str], Optional[str]]:
     base_url, api_key, model = _openai_compat_config_from_env()
     if not api_key:
@@ -119,6 +456,9 @@ async def _analyze_image_openai_compatible(
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
+    headers.update(_openai_extra_headers_from_env())
+
+    use_stream = _openai_use_stream_from_env()
     payload = {
         "model": model,
         "messages": [
@@ -127,7 +467,7 @@ async def _analyze_image_openai_compatible(
                 "content": [
                     {
                         "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"},
+                        "image_url": {"url": f"data:{mime_type};base64,{image_base64}"},
                     },
                     {"type": "text", "text": prompt},
                 ],
@@ -136,30 +476,72 @@ async def _analyze_image_openai_compatible(
         "max_tokens": 100,
         "temperature": 0.1,
     }
+    reasoning_effort = _env_get_optional("OPENAI_REASONING_EFFORT")
+    if reasoning_effort:
+        payload["reasoning_effort"] = reasoning_effort
+    verbosity = _env_get_optional("OPENAI_VERBOSITY")
+    if verbosity:
+        payload["verbosity"] = verbosity
+    if use_stream:
+        payload["stream"] = True
+        if _openai_stream_include_usage_from_env():
+            payload["stream_options"] = {"include_usage": True}
 
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        verify, verify_error = _httpx_verify_from_env("OPENAI")
+        if verify_error:
+            return None, verify_error
+
+        async with httpx.AsyncClient(timeout=30, verify=verify, trust_env=True) as client:
             response = await client.post(url, headers=headers, json=payload)
             response.raise_for_status()
+            if use_stream:
+                answer, err = _extract_openai_chat_answer_from_sse_text(response.text)
+                if err:
+                    return None, err
+                return _normalize_answer_text(answer), None
+
             result = response.json()
-            answer = result["choices"][0]["message"]["content"]
+            answer, err = _extract_openai_chat_answer_from_response_obj(result)
+            if err:
+                return None, err
             return _normalize_answer_text(answer), None
     except httpx.HTTPStatusError as e:
         return None, f"OpenAI 兼容接口 HTTP 错误: {e.response.status_code}"
     except Exception as e:
+        if _is_cert_verify_failed(e):
+            return None, f"{_tls_troubleshooting_hint('OPENAI')} 原始错误：{str(e)}"
         return None, f"OpenAI 兼容接口调用失败: {str(e)}"
 
 
 async def _analyze_image_gemini_official(
     image_base64: str,
     prompt: str,
+    mime_type: str,
 ) -> Tuple[Optional[str], Optional[str]]:
     if not GEMINI_API_KEY:
         return None, "GEMINI_API_KEY 未配置"
 
-    # Gemini REST API：POST /v1beta/models/{model}:generateContent?key=...
-    url = f"{GEMINI_BASE_URL.rstrip('/')}/models/{GEMINI_MODEL}:generateContent"
+    base_url = _normalize_gemini_base_url(GEMINI_BASE_URL)
+    use_stream = _gemini_use_stream_from_env()
+    method = "streamGenerateContent" if use_stream else "generateContent"
+
+    # Gemini REST API：
+    # - 非流式：POST /v1beta/models/{model}:generateContent
+    # - SSE 流式：POST /v1beta/models/{model}:streamGenerateContent?alt=sse
+    url = f"{base_url.rstrip('/')}/models/{GEMINI_MODEL}:{method}"
     headers = {"Content-Type": "application/json"}
+    headers.update(_gemini_extra_headers_from_env())
+
+    auth_mode = _gemini_auth_mode_from_env()
+    params: dict[str, str] = {}
+    if use_stream:
+        params["alt"] = "sse"
+    if auth_mode in {"query", "both"}:
+        params["key"] = GEMINI_API_KEY
+    if auth_mode in {"header", "both"}:
+        headers["x-goog-api-key"] = GEMINI_API_KEY
+
     payload = {
         "contents": [
             {
@@ -168,7 +550,7 @@ async def _analyze_image_gemini_official(
                     {"text": prompt},
                     {
                         "inlineData": {
-                            "mimeType": "image/jpeg",
+                            "mimeType": mime_type,
                             "data": image_base64,
                         }
                     },
@@ -182,33 +564,41 @@ async def _analyze_image_gemini_official(
     }
 
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        verify, verify_error = _httpx_verify_from_env("GEMINI")
+        if verify_error:
+            return None, verify_error
+
+        async with httpx.AsyncClient(timeout=30, verify=verify, trust_env=True) as client:
             response = await client.post(
                 url,
                 headers=headers,
-                params={"key": GEMINI_API_KEY},
+                params=params,
                 json=payload,
             )
             response.raise_for_status()
+            if use_stream:
+                answer, err = _extract_gemini_answer_from_sse_text(response.text)
+                if err:
+                    return None, err
+                return _normalize_answer_text(answer), None
+
             result = response.json()
-
-            candidates = result.get("candidates") or []
-            if not candidates:
-                return None, "Gemini 返回为空（无 candidates）"
-
-            parts = (candidates[0].get("content") or {}).get("parts") or []
-            text_parts = [p.get("text", "") for p in parts if isinstance(p, dict)]
-            answer = "".join(text_parts).strip()
+            answer, err = _extract_gemini_answer_from_response_obj(result)
+            if err:
+                return None, err
             return _normalize_answer_text(answer), None
     except httpx.HTTPStatusError as e:
         return None, f"Gemini API HTTP 错误: {e.response.status_code}"
     except Exception as e:
+        if _is_cert_verify_failed(e):
+            return None, f"{_tls_troubleshooting_hint('GEMINI')} 原始错误：{str(e)}"
         return None, f"Gemini API 调用失败: {str(e)}"
 
 
 async def _analyze_image_claude(
     image_base64: str,
     prompt: str,
+    mime_type: str,
 ) -> Tuple[Optional[str], Optional[str]]:
     if not CLAUDE_API_KEY:
         return None, "CLAUDE_API_KEY 未配置"
@@ -219,9 +609,11 @@ async def _analyze_image_claude(
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
     }
+    headers.update(_claude_extra_headers_from_env())
+    use_stream = _claude_use_stream_from_env()
     payload = {
         "model": CLAUDE_MODEL,
-        "max_tokens": 100,
+        "max_tokens": _parse_env_int("CLAUDE_MAX_TOKENS", 100),
         "temperature": 0.1,
         "messages": [
             {
@@ -231,7 +623,7 @@ async def _analyze_image_claude(
                         "type": "image",
                         "source": {
                             "type": "base64",
-                            "media_type": "image/jpeg",
+                            "media_type": mime_type,
                             "data": image_base64,
                         },
                     },
@@ -240,13 +632,27 @@ async def _analyze_image_claude(
             }
         ],
     }
+    thinking = _claude_thinking_from_env()
+    if thinking:
+        payload["thinking"] = thinking
+    if use_stream:
+        payload["stream"] = True
 
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        verify, verify_error = _httpx_verify_from_env("CLAUDE")
+        if verify_error:
+            return None, verify_error
+
+        async with httpx.AsyncClient(timeout=30, verify=verify, trust_env=True) as client:
             response = await client.post(url, headers=headers, json=payload)
             response.raise_for_status()
-            result = response.json()
+            if use_stream:
+                answer, err = _extract_claude_answer_from_sse_text(response.text)
+                if err:
+                    return None, err
+                return _normalize_answer_text(answer), None
 
+            result = response.json()
             content = result.get("content") or []
             if not content:
                 return None, "Claude 返回为空（无 content）"
@@ -255,6 +661,8 @@ async def _analyze_image_claude(
     except httpx.HTTPStatusError as e:
         return None, f"Claude API HTTP 错误: {e.response.status_code}"
     except Exception as e:
+        if _is_cert_verify_failed(e):
+            return None, f"{_tls_troubleshooting_hint('CLAUDE')} 原始错误：{str(e)}"
         return None, f"Claude API 调用失败: {str(e)}"
 
 async def analyze_image(
@@ -273,14 +681,15 @@ async def analyze_image(
     """
     try:
         image_base64 = base64.b64encode(image_data).decode("utf-8")
+        mime_type = _guess_image_mime_type(image_data)
         prompt = _build_captcha_prompt(options)
 
         if AI_PROVIDER == "openai":
-            answer, error = await _analyze_image_openai_compatible(image_base64, prompt)
+            answer, error = await _analyze_image_openai_compatible(image_base64, prompt, mime_type)
         elif AI_PROVIDER == "gemini":
-            answer, error = await _analyze_image_gemini_official(image_base64, prompt)
+            answer, error = await _analyze_image_gemini_official(image_base64, prompt, mime_type)
         elif AI_PROVIDER == "claude":
-            answer, error = await _analyze_image_claude(image_base64, prompt)
+            answer, error = await _analyze_image_claude(image_base64, prompt, mime_type)
         else:
             return None, f"不支持的 AI_PROVIDER: {AI_PROVIDER}（应为 openai/gemini/claude）"
 
@@ -345,6 +754,7 @@ class TerminusCheckin:
 
     async def start(self) -> bool:
         """执行签到流程"""
+        from pyrogram.errors import FloodWait
         self.finished.clear()
         self.success = False
         self.already_checked = False
@@ -480,6 +890,7 @@ class TerminusCheckin:
 
     async def handle_captcha(self, message: Message):
         """处理验证码"""
+        from pyrogram.errors import RPCError
         try:
             logger.info("收到验证码图片，正在识别...")
 
@@ -617,6 +1028,8 @@ async def run_scheduled_checkin(client: Client, checkin: TerminusCheckin):
 
 async def main():
     """主函数"""
+    from pyrogram import Client, filters
+    from pyrogram.types import Message
     logger.info("=" * 50)
     logger.info("终点站 (Terminus) 自动签到")
     logger.info("=" * 50)
@@ -664,8 +1077,68 @@ async def main():
         await run_scheduled_checkin(client, checkin)
 
 
+def _parse_test_options(raw: str) -> list[str]:
+    """
+    解析离线测试的选项列表：
+    - 允许使用逗号/顿号/分号/换行分隔
+    """
+    if not raw:
+        return []
+    parts = re.split(r"[,\n;；、]+", raw)
+    return [p.strip() for p in parts if p.strip()]
+
+
+async def _run_test_captcha(image_path: str, options_raw: str) -> int:
+    if not image_path:
+        logger.error("缺少图片路径：请使用 --image 指定验证码图片文件")
+        return 2
+    if not os.path.isfile(image_path):
+        logger.error(f"图片文件不存在：{image_path}")
+        return 2
+
+    options = _parse_test_options(options_raw)
+    if not options:
+        logger.error("缺少选项列表：请使用 --options 提供候选项（用逗号/顿号分隔）")
+        return 2
+
+    with open(image_path, "rb") as f:
+        image_data = f.read()
+
+    logger.info(f"离线测试：AI_PROVIDER={AI_PROVIDER}，候选项={options}")
+    answer, error = await analyze_image(image_data, options)
+    if error:
+        logger.error(f"验证码识别失败：{error}")
+        return 1
+
+    matched = find_best_match(answer or "", options)
+    logger.info(f"AI 原始回答: {answer}")
+    logger.info(f"匹配到的选项: {matched}")
+    if not matched:
+        return 1
+    print(matched)
+    return 0
+
+
 if __name__ == "__main__":
     try:
+        parser = argparse.ArgumentParser(description="终点站 (Terminus) Telegram 自动签到脚本")
+        parser.add_argument(
+            "--test-captcha",
+            action="store_true",
+            help="离线测试验证码识别：读取本地图片并输出匹配到的选项（不会触发签到流程）",
+        )
+        parser.add_argument("--image", default="", help="验证码图片路径（配合 --test-captcha 使用）")
+        parser.add_argument(
+            "--options",
+            default="",
+            help="候选项列表（逗号/顿号分隔，配合 --test-captcha 使用）",
+        )
+        args = parser.parse_args()
+
+        if args.test_captcha:
+            exit_code = asyncio.run(_run_test_captcha(args.image, args.options))
+            raise SystemExit(exit_code)
+
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("程序已退出")

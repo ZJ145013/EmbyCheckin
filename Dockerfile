@@ -8,6 +8,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制代码
 COPY checkin.py .
+COPY docker_entrypoint.py .
+COPY tools ./tools
 
 # 创建目录
 RUN mkdir -p /app/sessions /app/logs
@@ -17,4 +19,4 @@ ENV TZ=Asia/Shanghai
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # 运行
-CMD ["python", "-u", "checkin.py"]
+CMD ["python", "-u", "docker_entrypoint.py"]

@@ -1,3 +1,4 @@
+.DS_Store
 sessions/
 logs/
 __pycache__/
@@ -5,4 +6,5 @@ __pycache__/
 *.session
 *.session-journal
 .env
+docker-compose.local.yml
 .serena/
