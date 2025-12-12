@@ -1,0 +1,32 @@
+services:
+  terminus-checkin:
+    build: .
+    container_name: terminus-checkin
+    restart: unless-stopped
+    environment:
+      # Telegram 配置
+      - API_ID=2040
+      - API_HASH=b18441a1ff607e10a989891a5462e627
+      # 首次登录需要填写手机号（带国际区号，如 +8613800138000）
+      # 登录成功后可以删除或留空
+      - PHONE_NUMBER=
+
+      # Gemini 配置
+      - GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
+      - GEMINI_API_KEY=your_gemini_api_key
+      - GEMINI_MODEL=gemini-2.5-flash
+
+      # 签到配置
+      - CHECKIN_HOUR=9        # 每天签到时间（小时，24小时制）
+      - CHECKIN_MINUTE=0      # 每天签到时间（分钟）
+      - RUN_NOW=false         # 启动时是否立即签到（测试用，正常运行设为 false）
+      - SESSION_NAME=terminus_checkin
+
+      # 时区
+      - TZ=Asia/Shanghai
+    volumes:
+      # 持久化 session 和日志
+      - ./sessions:/app/sessions
+      - ./logs:/app/logs
+    stdin_open: true
+    tty: true
