@@ -138,6 +138,17 @@ terminus-checkin/
 
 ## 故障排除
 
+### Apple Silicon（M1/M2/M3）报错 no matching manifest
+
+原因：预构建镜像当前仅提供 `linux/amd64`，在 `linux/arm64/v8`（Apple Silicon）上直接拉取会失败。
+
+解决方式（二选一）：
+
+1. 使用 `linux/amd64` 仿真运行（最省事）  
+   - `docker-compose run --platform linux/amd64 -it terminus-checkin`
+2. 使用本地构建（原生架构，推荐）  
+   - 按“方式二：本地构建”执行：`docker-compose up --build`
+
 ### 登录失败
 - 确认手机号格式正确（带国际区号，如 `+86`）
 - 确认 Telegram 客户端能收到验证码

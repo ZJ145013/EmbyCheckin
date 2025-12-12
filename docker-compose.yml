@@ -4,38 +4,38 @@
 services:
   terminus-checkin:
     image: ghcr.io/zj145013/embycheckin:latest
+    # Apple Silicon（M 系列）默认是 linux/arm64；当前预构建镜像仅提供 linux/amd64
+    # 如需原生架构运行，请使用下方“方式二：本地构建镜像”
+    platform: linux/amd64
     container_name: terminus-checkin
     restart: unless-stopped
     environment:
-      # Telegram 配置
-      - API_ID=2040
-      - API_HASH=b18441a1ff607e10a989891a5462e627
       # 首次登录需要填写手机号（带国际区号，如 +8613800138000）
       # 登录成功后可以删除或留空
       - PHONE_NUMBER=
 
       # AI 提供方选择：openai / gemini / claude
-      - AI_PROVIDER=openai
+      - AI_PROVIDER=gemini
 
       # OpenAI（或 OpenAI 兼容接口）配置（AI_PROVIDER=openai）
       - OPENAI_BASE_URL=https://api.openai.com/v1
-      - OPENAI_API_KEY=your_openai_api_key
+      - OPENAI_API_KEY=
       - OPENAI_MODEL=gpt-4o-mini
 
       # Gemini 官方 REST API 配置（AI_PROVIDER=gemini）
       - GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
-      - GEMINI_API_KEY=your_gemini_api_key
+      - GEMINI_API_KEY=
       - GEMINI_MODEL=gemini-2.5-flash
 
       # Claude（Anthropic）配置（AI_PROVIDER=claude）
       - CLAUDE_BASE_URL=https://api.anthropic.com
-      - CLAUDE_API_KEY=your_claude_api_key
+      - CLAUDE_API_KEY=
       - CLAUDE_MODEL=claude-3-5-sonnet-20241022
 
       # 签到配置
-      - CHECKIN_HOUR=9        # 每天签到时间（小时，24小时制）
-      - CHECKIN_MINUTE=0      # 每天签到时间（分钟）
-      - RUN_NOW=false         # 启动时是否立即签到（测试用，正常运行设为 false）
+      - CHECKIN_HOUR=9 # 每天签到时间（小时，24小时制）
+      - CHECKIN_MINUTE=0 # 每天签到时间（分钟）
+      - RUN_NOW=false # 启动时是否立即签到（测试用，正常运行设为 false）
       - SESSION_NAME=terminus_checkin
 
       # 时区
