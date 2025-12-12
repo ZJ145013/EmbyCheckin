@@ -1,7 +1,17 @@
 name: Build and Push Docker Image
 
 on:
-  # 按仓库约束：禁用自动化 CI/CD，仅保留手动触发
+  # 按用户指令：恢复 push 自动触发（保留手动触发）
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - main
+      - master
   workflow_dispatch:
 
 env:
