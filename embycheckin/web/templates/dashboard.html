@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}任务列表 - EmbyCheckin{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-semibold text-gray-900">任务列表</h1>
+        <a href="/tasks/new" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
+            新建任务
+        </a>
+    </div>
+
+    {% if not tasks %}
+    <div class="text-center py-12">
+        <p class="text-gray-500">暂无任务</p>
+        <a href="/tasks/new" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-indigo-600 bg-indigo-100 hover:bg-indigo-200">
+            创建第一个任务
+        </a>
+    </div>
+    {% else %}
+    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+        <ul class="divide-y divide-gray-200">
+            {% for task in tasks %}
+            <li>
+                <div class="px-4 py-4 flex items-center sm:px-6">
+                    <div class="min-w-0 flex-1 sm:flex sm:items-center sm:justify-between">
+                        <div class="truncate">
+                            <div class="flex text-sm">
+                                <p class="font-medium text-indigo-600 truncate">{{ task.name }}</p>
+                                <p class="ml-1 flex-shrink-0 font-normal text-gray-500">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {% if task.enabled %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                                        {{ '启用' if task.enabled else '禁用' }}
+                                    </span>
+                                </p>
+                            </div>
+                            <div class="mt-2 flex">
+                                <div class="flex items-center text-sm text-gray-500">
+                                    <span class="truncate">{{ task.type }} | {{ task.target }} | {{ task.schedule_cron }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ml-5 flex-shrink-0 flex space-x-2">
+                        <button onclick="runTask({{ task.id }})" class="px-3 py-1 text-sm text-green-600 hover:text-green-900">运行</button>
+                        <button onclick="toggleTask({{ task.id }}, {{ 'false' if task.enabled else 'true' }})" class="px-3 py-1 text-sm text-yellow-600 hover:text-yellow-900">
+                            {{ '禁用' if task.enabled else '启用' }}
+                        </button>
+                        <a href="/tasks/{{ task.id }}/edit" class="px-3 py-1 text-sm text-indigo-600 hover:text-indigo-900">编辑</a>
+                        <a href="/tasks/{{ task.id }}/runs" class="px-3 py-1 text-sm text-gray-600 hover:text-gray-900">日志</a>
+                        <button onclick="confirmDelete('/api/v1/tasks/{{ task.id }}')" class="px-3 py-1 text-sm text-red-600 hover:text-red-900">删除</button>
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if recent_runs %}
+    <div class="mt-8">
+        <h2 class="text-lg font-medium text-gray-900 mb-4">最近执行</h2>
+        <div class="bg-white shadow overflow-hidden sm:rounded-md">
+            <ul class="divide-y divide-gray-200">
+                {% for run in recent_runs %}
+                <li class="px-4 py-3">
+                    <div class="flex items-center justify-between">
+                        <div class="text-sm">
+                            <span class="font-medium">任务 #{{ run.task_id }}</span>
+                            <span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                {% if run.status == 'success' %}bg-green-100 text-green-800
+                                {% elif run.status == 'failed' %}bg-red-100 text-red-800
+                                {% elif run.status == 'running' %}bg-blue-100 text-blue-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ run.status }}
+                            </span>
+                        </div>
+                        <div class="text-sm text-gray-500">
+                            {{ run.created_at.strftime('%Y-%m-%d %H:%M:%S') if run.created_at else '' }}
+                        </div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}执行日志 - EmbyCheckin{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-semibold text-gray-900">
+            {% if task %}任务 "{{ task.name }}" 的执行日志{% else %}全部执行日志{% endif %}
+        </h1>
+        {% if task %}
+        <a href="/" class="text-indigo-600 hover:text-indigo-900">返回任务列表</a>
+        {% endif %}
+    </div>
+
+    {% if not runs %}
+    <div class="text-center py-12">
+        <p class="text-gray-500">暂无执行记录</p>
+    </div>
+    {% else %}
+    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">任务</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">触发方式</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">开始时间</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">耗时</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">错误信息</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for run in runs %}
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ run.id }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ run.task_id }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                            {% if run.status == 'success' %}bg-green-100 text-green-800
+                            {% elif run.status == 'failed' %}bg-red-100 text-red-800
+                            {% elif run.status == 'running' %}bg-blue-100 text-blue-800
+                            {% elif run.status == 'skipped' %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ run.status }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ run.triggered_by }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ run.started_at.strftime('%Y-%m-%d %H:%M:%S') if run.started_at else '-' }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ (run.duration_ms / 1000) | round(2) }}s if run.duration_ms else '-' }}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-red-600 max-w-xs truncate" title="{{ run.error_message or '' }}">
+                        {{ run.error_message[:50] + '...' if run.error_message and run.error_message|length > 50 else run.error_message or '-' }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

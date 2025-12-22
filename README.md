@@ -1,6 +1,6 @@
-# 终点站 (Terminus) 自动签到
+# EmbyCheckin - Telegram 自动签到工具
 
-使用可选 AI 提供方（OpenAI / Gemini / Claude）自动识别验证码，完成终点站 Telegram 机器人签到。
+使用可选 AI 提供方（OpenAI / Gemini / Claude）自动识别验证码，完成 Telegram 机器人签到。
 
 ## 功能
 
@@ -9,6 +9,15 @@
 - 支持 Docker 部署
 - 日志记录
 - 支持选择 AI 提供方（OpenAI / Gemini / Claude）
+
+### 新版调度器 (v2.0)
+
+- **多任务管理**：支持同时管理多个签到任务
+- **多账号支持**：管理多个 Telegram 账号
+- **Web UI 管理界面**：可视化任务配置与监控
+- **灵活的任务类型**：支持 `bot_checkin`（机器人签到）和 `send_message`（消息发送）
+- **Cron 表达式调度**：灵活配置执行时间
+- **执行日志**：完整的任务执行历史记录
 
 ## 快速开始
 
@@ -241,17 +250,89 @@ python3 checkin.py --test-captcha \
 
 命令会输出匹配到的选项（stdout），你再回到 Telegram 手动点击对应按钮即可。
 
+---
+
+## 新版调度器 (v2.0) 使用指南
+
+新版调度器提供 Web UI 管理界面，支持多任务、多账号管理。
+
+### 快速启动
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/ZJ145013/EmbyCheckin.git
+cd EmbyCheckin
+
+# 2. 使用调度器专用 compose 文件启动
+docker-compose -f docker-compose.scheduler.yml up --build -d
+
+# 3. 访问 Web UI
+# http://127.0.0.1:8000/
+```
+
+### 调度器配置
+
+使用 `docker-compose.scheduler.yml` 或设置 `.env` 文件：
+
+| 环境变量 | 说明 | 默认值 |
+|---------|------|--------|
+| `DB_PATH` | 数据库路径 | `data/scheduler.db` |
+| `BIND_HOST` | Web 服务绑定地址 | `0.0.0.0` |
+| `BIND_PORT` | Web 服务端口 | `8000` |
+
+AI 配置与旧版相同，支持 OpenAI / Gemini / Claude。
+
+### 任务类型
+
+| 类型 | 说明 |
+|------|------|
+| `bot_checkin` | 机器人签到（支持 AI 验证码识别） |
+| `send_message` | 简单消息发送（保活用） |
+
+详细任务配置示例请参考 [docs/task-config-examples.md](docs/task-config-examples.md)。
+
+### 调度器常用命令
+
+```bash
+# 启动调度器
+docker-compose -f docker-compose.scheduler.yml up -d
+
+# 查看日志
+docker-compose -f docker-compose.scheduler.yml logs -f
+
+# 停止
+docker-compose -f docker-compose.scheduler.yml down
+
+# 重新构建
+docker-compose -f docker-compose.scheduler.yml up --build -d
+```
+
+---
+
 ## 目录结构
 
 ```
-terminus-checkin/
-├── checkin.py          # 主程序
-├── requirements.txt    # Python 依赖
-├── Dockerfile
-├── docker-compose.yml
-├── README.md
-├── sessions/           # Telegram session（自动创建）
-└── logs/               # 日志文件（自动创建）
+EmbyCheckin/
+├── checkin.py              # 旧版签到主程序
+├── docker_entrypoint.py    # Docker 入口
+├── requirements.txt        # Python 依赖
+├── Dockerfile              # 主镜像（含旧版+新版）
+├── Dockerfile.scheduler    # 调度器专用镜像
+├── docker-compose.yml      # 旧版单任务部署
+├── docker-compose.scheduler.yml  # 新版调度器部署
+├── tools/
+│   └── config_ui.py        # 可视化配置器
+├── embycheckin/            # 新版调度器模块
+│   ├── app.py              # FastAPI 应用入口
+│   ├── scheduler/          # 调度服务
+│   ├── tasks/              # 任务类型实现
+│   ├── telegram/           # Telegram 客户端管理
+│   ├── web/                # Web UI 与 API
+│   └── ai/                 # AI 提供方
+├── docs/                   # 文档
+├── sessions/               # Telegram session（自动创建）
+├── logs/                   # 日志文件（自动创建）
+└── data/                   # 调度器数据库（自动创建）
 ```
 
 ## 注意事项

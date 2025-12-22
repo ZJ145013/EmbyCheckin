@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+
+{% block title %}{{ '编辑任务' if task else '新建任务' }} - EmbyCheckin{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="md:grid md:grid-cols-3 md:gap-6">
+        <div class="md:col-span-1">
+            <h3 class="text-lg font-medium leading-6 text-gray-900">{{ '编辑任务' if task else '新建任务' }}</h3>
+            <p class="mt-1 text-sm text-gray-600">配置定时任务的基本信息和执行参数。</p>
+        </div>
+        <div class="mt-5 md:mt-0 md:col-span-2">
+            <form id="taskForm">
+                <div class="shadow sm:rounded-md sm:overflow-hidden">
+                    <div class="px-4 py-5 bg-white space-y-6 sm:p-6">
+                        <!-- 基础配置 -->
+                        <div class="border-b pb-4">
+                            <h4 class="text-md font-medium text-gray-800 mb-4">基础配置</h4>
+                            <div class="grid grid-cols-6 gap-4">
+                                <div class="col-span-6 sm:col-span-3">
+                                    <label class="block text-sm font-medium text-gray-700">任务名称</label>
+                                    <input type="text" name="name" value="{{ task.name if task else '' }}" required
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                </div>
+
+                                <div class="col-span-6 sm:col-span-3">
+                                    <label class="block text-sm font-medium text-gray-700">任务类型</label>
+                                    <select name="type" id="taskType" onchange="toggleTaskConfig()" required {% if task %}disabled{% endif %}
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                        {% for t in task_types %}
+                                        <option value="{{ t }}" {% if task and task.type == t %}selected{% endif %}>{{ t }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="col-span-6 sm:col-span-3">
+                                    <label class="block text-sm font-medium text-gray-700">关联账号</label>
+                                    <select name="account_id" required
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                        {% for acc in accounts %}
+                                        <option value="{{ acc.id }}" {% if task and task.account_id == acc.id %}selected{% endif %}>{{ acc.name }} ({{ acc.session_name }})</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="col-span-6 sm:col-span-3">
+                                    <label class="block text-sm font-medium text-gray-700">目标机器人</label>
+                                    <input type="text" name="target" value="{{ task.target if task else '' }}" required
+                                        placeholder="机器人用户名，如 EmbyPublicBot"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 调度配置 -->
+                        <div class="border-b pb-4">
+                            <h4 class="text-md font-medium text-gray-800 mb-4">调度配置</h4>
+                            <div class="grid grid-cols-6 gap-4">
+                                <div class="col-span-6 sm:col-span-3">
+                                    <label class="block text-sm font-medium text-gray-700">Cron 表达式</label>
+                                    <input type="text" name="schedule_cron" value="{{ task.schedule_cron if task else '0 9 * * *' }}" required
+                                        placeholder="分 时 日 月 周"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                    <p class="mt-1 text-xs text-gray-500">格式: 分 时 日 月 周 (例: 0 9 * * * 表示每天9点)</p>
+                                </div>
+
+                                <div class="col-span-6 sm:col-span-3">
+                                    <label class="block text-sm font-medium text-gray-700">时区</label>
+                                    <input type="text" name="timezone" value="{{ task.timezone if task else 'Asia/Shanghai' }}"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                </div>
+
+                                <div class="col-span-6 sm:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700">重试次数</label>
+                                    <input type="number" name="retries" value="{{ task.retries if task else 0 }}" min="0"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                </div>
+
+                                <div class="col-span-6 sm:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700">超时时间 (秒)</label>
+                                    <input type="number" name="max_runtime_seconds" value="{{ task.max_runtime_seconds if task else 120 }}" min="10"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                </div>
+
+                                <div class="col-span-6 sm:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700">随机延迟 (秒)</label>
+                                    <input type="number" name="jitter_seconds" value="{{ task.jitter_seconds if task else 0 }}" min="0"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- bot_checkin 专用配置 -->
+                        <div id="botCheckinConfig" class="border-b pb-4">
+                            <h4 class="text-md font-medium text-gray-800 mb-4">签到配置</h4>
+                            <div class="grid grid-cols-6 gap-4">
+                                <div class="col-span-6 sm:col-span-3">
+                                    <label class="block text-sm font-medium text-gray-700">签到命令</label>
+                                    <input type="text" name="command" id="command" value="{{ task.params.command if task and task.params else '/checkin' }}"
+                                        placeholder="/checkin"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                </div>
+
+                                <div class="col-span-6 sm:col-span-3">
+                                    <label class="block text-sm font-medium text-gray-700">响应超时 (秒)</label>
+                                    <input type="number" name="timeout" id="timeout" value="{{ task.params.timeout if task and task.params else 60 }}" min="10"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                </div>
+
+                                <div class="col-span-6 sm:col-span-3">
+                                    <div class="flex items-center mt-4">
+                                        <input type="checkbox" name="use_ai" id="use_ai" {% if task and task.params and task.params.use_ai %}checked{% endif %}
+                                            class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                                        <label class="ml-2 block text-sm text-gray-900">使用 AI 识别验证码</label>
+                                    </div>
+                                </div>
+
+                                <div class="col-span-6">
+                                    <label class="block text-sm font-medium text-gray-700">成功关键词 (逗号分隔)</label>
+                                    <input type="text" name="success_keywords" id="success_keywords"
+                                        value="{{ ','.join(task.params.success_patterns.keywords) if task and task.params and task.params.success_patterns else '签到成功,成功签到,获得,积分,恭喜,完成签到' }}"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                </div>
+
+                                <div class="col-span-6">
+                                    <label class="block text-sm font-medium text-gray-700">已签到关键词 (逗号分隔)</label>
+                                    <input type="text" name="already_keywords" id="already_keywords"
+                                        value="{{ ','.join(task.params.already_checked_patterns.keywords) if task and task.params and task.params.already_checked_patterns else '今天已签到,已经签到,今日已签到,已签到,重复签到' }}"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                </div>
+
+                                <div class="col-span-6">
+                                    <label class="block text-sm font-medium text-gray-700">失败关键词 (逗号分隔)</label>
+                                    <input type="text" name="fail_keywords" id="fail_keywords"
+                                        value="{{ ','.join(task.params.fail_patterns.keywords) if task and task.params and task.params.fail_patterns else '失败,错误,验证码错误,回答错误,超时,过期,无效' }}"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                </div>
+
+                                <div class="col-span-6">
+                                    <label class="block text-sm font-medium text-gray-700">数据提取正则 (可选)</label>
+                                    <input type="text" name="extract_regex" id="extract_regex"
+                                        value="{{ task.params.success_patterns.extract_regex if task and task.params and task.params.success_patterns else '[+＋]?\\s*(\\d+)\\s*[积分点]' }}"
+                                        placeholder="用于提取积分等数据的正则表达式"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- send_message 专用配置 -->
+                        <div id="sendMessageConfig" class="border-b pb-4 hidden">
+                            <h4 class="text-md font-medium text-gray-800 mb-4">消息配置</h4>
+                            <div class="grid grid-cols-6 gap-4">
+                                <div class="col-span-6">
+                                    <label class="block text-sm font-medium text-gray-700">发送内容</label>
+                                    <textarea name="message" id="message" rows="3"
+                                        placeholder="要发送的消息内容"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">{{ task.params.message if task and task.params else '' }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 启用状态 -->
+                        <div class="flex items-center">
+                            <input type="checkbox" name="enabled" {% if not task or task.enabled %}checked{% endif %}
+                                class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                            <label class="ml-2 block text-sm text-gray-900">启用任务</label>
+                        </div>
+                    </div>
+
+                    <div class="px-4 py-3 bg-gray-50 text-right sm:px-6">
+                        <a href="/" class="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 mr-3">
+                            取消
+                        </a>
+                        <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                            保存
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleTaskConfig() {
+    const taskType = document.getElementById('taskType').value;
+    const botCheckinConfig = document.getElementById('botCheckinConfig');
+    const sendMessageConfig = document.getElementById('sendMessageConfig');
+
+    if (taskType === 'bot_checkin') {
+        botCheckinConfig.classList.remove('hidden');
+        sendMessageConfig.classList.add('hidden');
+    } else if (taskType === 'send_message') {
+        botCheckinConfig.classList.add('hidden');
+        sendMessageConfig.classList.remove('hidden');
+    } else {
+        botCheckinConfig.classList.add('hidden');
+        sendMessageConfig.classList.add('hidden');
+    }
+}
+
+function buildParams() {
+    const taskType = document.getElementById('taskType').value;
+
+    if (taskType === 'bot_checkin') {
+        const successKeywords = document.getElementById('success_keywords').value.split(',').map(s => s.trim()).filter(s => s);
+        const alreadyKeywords = document.getElementById('already_keywords').value.split(',').map(s => s.trim()).filter(s => s);
+        const failKeywords = document.getElementById('fail_keywords').value.split(',').map(s => s.trim()).filter(s => s);
+        const extractRegex = document.getElementById('extract_regex').value.trim();
+
+        return {
+            command: document.getElementById('command').value || '/checkin',
+            timeout: parseInt(document.getElementById('timeout').value) || 60,
+            use_ai: document.getElementById('use_ai').checked,
+            captcha_has_image: true,
+            captcha_has_buttons: true,
+            random_delay_min: 2.0,
+            random_delay_max: 5.0,
+            success_patterns: {
+                keywords: successKeywords,
+                extract_regex: extractRegex || null
+            },
+            already_checked_patterns: {
+                keywords: alreadyKeywords
+            },
+            fail_patterns: {
+                keywords: failKeywords
+            },
+            ignore_patterns: {
+                keywords: ["会话已取消", "没有活跃的会话"]
+            },
+            account_error_patterns: {
+                keywords: ["黑名单", "封禁", "禁止", "未注册", "不存在", "未绑定"]
+            }
+        };
+    } else if (taskType === 'send_message') {
+        return {
+            message: document.getElementById('message').value
+        };
+    }
+    return {};
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    toggleTaskConfig();
+});
+
+document.getElementById('taskForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const form = e.target;
+    const data = {
+        name: form.name.value,
+        type: form.type.value,
+        account_id: parseInt(form.account_id.value),
+        target: form.target.value,
+        schedule_cron: form.schedule_cron.value,
+        timezone: form.timezone.value,
+        params: buildParams(),
+        retries: parseInt(form.retries.value),
+        max_runtime_seconds: parseInt(form.max_runtime_seconds.value),
+        jitter_seconds: parseInt(form.jitter_seconds.value),
+        enabled: form.enabled.checked
+    };
+
+    const taskId = {{ task.id if task else 'null' }};
+    const url = taskId ? '/api/v1/tasks/' + taskId : '/api/v1/tasks';
+    const method = taskId ? 'PATCH' : 'POST';
+
+    try {
+        const resp = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (resp.ok) {
+            window.location.href = '/';
+        } else {
+            const err = await resp.json();
+            alert('保存失败: ' + (err.detail || JSON.stringify(err)));
+        }
+    } catch (e) {
+        alert('请求失败: ' + e.message);
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,218 @@
+from __future__ import annotations
+
+import asyncio
+import re
+from datetime import datetime, timezone
+from typing import Any, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import ValidationError
+from sqlmodel import Session, select
+
+from ..db import get_session
+from ..models import Account, Task, TaskRun
+from ..schemas import (
+    AccountCreate,
+    AccountResponse,
+    TaskCreate,
+    TaskUpdate,
+    TaskResponse,
+    RunResponse,
+)
+from ..tasks import list_task_types, validate_task_params
+
+
+router = APIRouter(prefix="/api/v1")
+SESSION_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
+
+_scheduler = None
+_runner = None
+
+
+def set_services(scheduler, runner):
+    global _scheduler, _runner
+    _scheduler = scheduler
+    _runner = runner
+
+
+def get_db():
+    with get_session() as session:
+        yield session
+
+
+@router.get("/status")
+async def get_status():
+    return {"status": "ok", "scheduler_running": _scheduler is not None}
+
+
+@router.get("/task-types")
+async def get_task_types():
+    return {"types": list_task_types()}
+
+
+@router.get("/tasks", response_model=list[TaskResponse])
+async def list_tasks(
+    enabled: Optional[bool] = None,
+    type: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    query = select(Task)
+    if enabled is not None:
+        query = query.where(Task.enabled == enabled)
+    if type:
+        query = query.where(Task.type == type)
+    return db.exec(query).all()
+
+
+@router.post("/tasks", response_model=TaskResponse)
+async def create_task(data: TaskCreate, db: Session = Depends(get_db)):
+    try:
+        validate_task_params(data.type, data.params)
+    except (KeyError, ValidationError) as e:
+        raise HTTPException(400, str(e))
+
+    account = db.get(Account, data.account_id)
+    if not account:
+        raise HTTPException(400, f"Account {data.account_id} not found")
+
+    task = Task(**data.model_dump())
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+
+    if _scheduler:
+        _scheduler.add_task(task)
+
+    return task
+
+
+@router.get("/tasks/{task_id}", response_model=TaskResponse)
+async def get_task(task_id: int, db: Session = Depends(get_db)):
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+    return task
+
+
+@router.patch("/tasks/{task_id}", response_model=TaskResponse)
+async def update_task(task_id: int, data: TaskUpdate, db: Session = Depends(get_db)):
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "params" in update_data:
+        try:
+            validate_task_params(task.type, update_data["params"])
+        except (KeyError, ValidationError) as e:
+            raise HTTPException(400, str(e))
+
+    for key, value in update_data.items():
+        setattr(task, key, value)
+
+    task.updated_at = datetime.now(timezone.utc)
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+
+    if _scheduler:
+        _scheduler.update_task(task)
+
+    return task
+
+
+@router.delete("/tasks/{task_id}")
+async def delete_task(task_id: int, db: Session = Depends(get_db)):
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+
+    if _scheduler:
+        _scheduler.remove_task(task_id)
+
+    db.delete(task)
+    db.commit()
+    return {"deleted": True}
+
+
+@router.post("/tasks/{task_id}/run")
+async def run_task_now(task_id: int, db: Session = Depends(get_db)):
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+
+    if not _scheduler:
+        raise HTTPException(503, "Scheduler not available")
+
+    asyncio.create_task(_scheduler.run_now(task_id))
+    return {"queued": True, "task_id": task_id}
+
+
+@router.get("/tasks/{task_id}/runs", response_model=list[RunResponse])
+async def list_task_runs(task_id: int, limit: int = 20, db: Session = Depends(get_db)):
+    query = (
+        select(TaskRun)
+        .where(TaskRun.task_id == task_id)
+        .order_by(TaskRun.created_at.desc())
+        .limit(limit)
+    )
+    return db.exec(query).all()
+
+
+@router.get("/runs", response_model=list[RunResponse])
+async def list_runs(limit: int = 50, db: Session = Depends(get_db)):
+    query = select(TaskRun).order_by(TaskRun.created_at.desc()).limit(limit)
+    return db.exec(query).all()
+
+
+@router.get("/runs/{run_id}", response_model=RunResponse)
+async def get_run(run_id: int, db: Session = Depends(get_db)):
+    run = db.get(TaskRun, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+    return run
+
+
+@router.get("/accounts", response_model=list[AccountResponse])
+async def list_accounts(db: Session = Depends(get_db)):
+    return db.exec(select(Account)).all()
+
+
+@router.post("/accounts", response_model=AccountResponse)
+async def create_account(data: AccountCreate, db: Session = Depends(get_db)):
+    if not SESSION_NAME_PATTERN.match(data.session_name):
+        raise HTTPException(400, "Invalid session_name: only alphanumeric, underscore, dot, and hyphen allowed")
+
+    existing = db.exec(select(Account).where(Account.session_name == data.session_name)).first()
+    if existing:
+        raise HTTPException(400, f"Account with session_name '{data.session_name}' already exists")
+
+    account = Account(**data.model_dump())
+    db.add(account)
+    db.commit()
+    db.refresh(account)
+    return account
+
+
+@router.delete("/accounts/{account_id}")
+async def delete_account(account_id: int, db: Session = Depends(get_db)):
+    account = db.get(Account, account_id)
+    if not account:
+        raise HTTPException(404, "Account not found")
+
+    tasks = db.exec(select(Task).where(Task.account_id == account_id)).all()
+    if tasks:
+        raise HTTPException(400, f"Cannot delete account with {len(tasks)} associated tasks")
+
+    db.delete(account)
+    db.commit()
+    return {"deleted": True}
+
+
+@router.post("/scheduler/reload")
+async def reload_scheduler():
+    if not _scheduler:
+        raise HTTPException(503, "Scheduler not available")
+    await _scheduler.reload_all()
+    return {"reloaded": True}
