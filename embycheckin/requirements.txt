@@ -10,6 +10,7 @@ sqlalchemy>=2.0.25
 
 # Scheduler
 apscheduler>=3.10.4
+croniter>=2.0.0
 
 # Telegram
 pyrogram>=2.0.106
