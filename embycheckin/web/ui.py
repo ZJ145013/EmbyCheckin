@@ -44,9 +44,8 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     accounts = db.exec(select(Account)).all()
     recent_runs = db.exec(select(TaskRun).order_by(TaskRun.created_at.desc()).limit(10)).all()
 
-    # 为每个任务计算下一次执行时间
-    for task in tasks:
-        task.next_run = get_next_run_time(task)
+    # 计算每个任务的下一次执行时间
+    next_runs = {task.id: get_next_run_time(task) for task in tasks}
 
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
@@ -54,6 +53,7 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
         "accounts": accounts,
         "recent_runs": recent_runs,
         "task_types": list_task_types(),
+        "next_runs": next_runs,
     })
 
 

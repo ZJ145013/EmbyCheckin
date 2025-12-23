@@ -39,9 +39,9 @@
                                     <span class="truncate">{{ task.type }} | {{ task.target }} | {{ task.schedule_cron }}</span>
                                 </div>
                             </div>
-                            {% if task.enabled and task.next_run %}
+                            {% if task.enabled and next_runs.get(task.id) %}
                             <div class="mt-1 text-xs text-blue-600">
-                                下次执行: {{ task.next_run }}
+                                下次执行: {{ next_runs.get(task.id) }}
                             </div>
                             {% endif %}
                         </div>
