@@ -166,6 +166,59 @@
                             </div>
                         </div>
 
+                        <!-- button_checkin 专用配置 -->
+                        <div id="buttonCheckinConfig" class="border-b pb-4 hidden">
+                            <h4 class="text-md font-medium text-gray-800 mb-4">按钮签到配置</h4>
+                            <p class="text-sm text-gray-500 mb-4">适用于需要点击内联键盘按钮的机器人（如 MICU）</p>
+                            <div class="grid grid-cols-6 gap-4">
+                                <div class="col-span-6 sm:col-span-3">
+                                    <label class="block text-sm font-medium text-gray-700">触发命令</label>
+                                    <input type="text" name="trigger_command" id="trigger_command"
+                                        value="{{ task.params.trigger_command if task and task.params else '/start' }}"
+                                        placeholder="/start"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                    <p class="mt-1 text-xs text-gray-500">用于触发面板显示的命令</p>
+                                </div>
+
+                                <div class="col-span-6 sm:col-span-3">
+                                    <label class="block text-sm font-medium text-gray-700">按钮文本</label>
+                                    <input type="text" name="button_text" id="button_text"
+                                        value="{{ task.params.button_text if task and task.params else '签到' }}"
+                                        placeholder="签到"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                    <p class="mt-1 text-xs text-gray-500">要点击的按钮文本（支持部分匹配）</p>
+                                </div>
+
+                                <div class="col-span-6 sm:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700">等待面板 (秒)</label>
+                                    <input type="number" name="wait_panel_seconds" id="wait_panel_seconds"
+                                        value="{{ task.params.wait_panel_seconds if task and task.params else 2 }}" min="1" step="0.5"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                </div>
+
+                                <div class="col-span-6 sm:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700">响应超时 (秒)</label>
+                                    <input type="number" name="btn_timeout" id="btn_timeout"
+                                        value="{{ task.params.timeout if task and task.params else 30 }}" min="10"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                </div>
+
+                                <div class="col-span-6">
+                                    <label class="block text-sm font-medium text-gray-700">成功关键词 (逗号分隔)</label>
+                                    <input type="text" name="btn_success_keywords" id="btn_success_keywords"
+                                        value="{{ ','.join(task.params.success_keywords) if task and task.params and task.params.success_keywords else '签到成功,成功,获得,积分,恭喜,完成,米币' }}"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                </div>
+
+                                <div class="col-span-6">
+                                    <label class="block text-sm font-medium text-gray-700">已签到关键词 (逗号分隔)</label>
+                                    <input type="text" name="btn_already_keywords" id="btn_already_keywords"
+                                        value="{{ ','.join(task.params.already_checked_keywords) if task and task.params and task.params.already_checked_keywords else '已签到,已经签到,今天已,重复' }}"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- send_message 专用配置 -->
                         <div id="sendMessageConfig" class="border-b pb-4 hidden">
                             <h4 class="text-md font-medium text-gray-800 mb-4">消息配置</h4>
@@ -212,17 +265,19 @@ function applyCronPreset() {
 function toggleTaskConfig() {
     const taskType = document.getElementById('taskType').value;
     const botCheckinConfig = document.getElementById('botCheckinConfig');
+    const buttonCheckinConfig = document.getElementById('buttonCheckinConfig');
     const sendMessageConfig = document.getElementById('sendMessageConfig');
+
+    botCheckinConfig.classList.add('hidden');
+    buttonCheckinConfig.classList.add('hidden');
+    sendMessageConfig.classList.add('hidden');
 
     if (taskType === 'bot_checkin') {
         botCheckinConfig.classList.remove('hidden');
-        sendMessageConfig.classList.add('hidden');
+    } else if (taskType === 'button_checkin') {
+        buttonCheckinConfig.classList.remove('hidden');
     } else if (taskType === 'send_message') {
-        botCheckinConfig.classList.add('hidden');
         sendMessageConfig.classList.remove('hidden');
-    } else {
-        botCheckinConfig.classList.add('hidden');
-        sendMessageConfig.classList.add('hidden');
     }
 }
 
@@ -259,6 +314,21 @@ function buildParams() {
             account_error_patterns: {
                 keywords: ["黑名单", "封禁", "禁止", "未注册", "不存在", "未绑定"]
             }
+        };
+    } else if (taskType === 'button_checkin') {
+        const successKeywords = document.getElementById('btn_success_keywords').value.split(',').map(s => s.trim()).filter(s => s);
+        const alreadyKeywords = document.getElementById('btn_already_keywords').value.split(',').map(s => s.trim()).filter(s => s);
+
+        return {
+            trigger_command: document.getElementById('trigger_command').value || '/start',
+            button_text: document.getElementById('button_text').value || '签到',
+            wait_panel_seconds: parseFloat(document.getElementById('wait_panel_seconds').value) || 2.0,
+            timeout: parseInt(document.getElementById('btn_timeout').value) || 30,
+            random_delay_min: 1.0,
+            random_delay_max: 3.0,
+            success_keywords: successKeywords,
+            already_checked_keywords: alreadyKeywords,
+            fail_keywords: ["失败", "错误", "无效"]
         };
     } else if (taskType === 'send_message') {
         return {
