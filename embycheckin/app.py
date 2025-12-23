@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
     create_db_and_tables(engine)
     logger.info(f"Database initialized: {settings.db_path}")
 
-    telegram_manager = TelegramClientManager()
+    telegram_manager = TelegramClientManager(sessions_dir=settings.sessions_dir)
     conversation_router = ConversationRouter()
 
     runner = TaskRunner(

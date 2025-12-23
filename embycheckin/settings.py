@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     )
 
     db_path: str = Field(default="data/scheduler.db", validation_alias="DB_PATH")
+    sessions_dir: str = Field(default="sessions", validation_alias="SESSIONS_DIR")
     bind_host: str = Field(default="127.0.0.1", validation_alias="BIND_HOST")
     bind_port: int = Field(default=8000, validation_alias="BIND_PORT")
     tz: str = Field(default="Asia/Shanghai", validation_alias="TZ")
