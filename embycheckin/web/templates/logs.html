@@ -59,7 +59,7 @@
                         {{ run.error_message or (run.result.message if run.result else '') or '-' }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
-                        <button onclick="showDetail({{ run.id }}, {{ run.result | tojson | e }})"
+                        <button onclick='showDetail({{ run.id }}, {{ run.result | tojson }})'
                             class="text-indigo-600 hover:text-indigo-900">详情</button>
                     </td>
                 </tr>
