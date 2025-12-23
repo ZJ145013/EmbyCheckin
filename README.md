@@ -263,16 +263,19 @@ python3 checkin.py --test-captcha \
 git clone https://github.com/ZJ145013/EmbyCheckin.git
 cd EmbyCheckin
 
-# 2. 使用调度器专用 compose 文件启动
-docker-compose -f docker-compose.scheduler.yml up --build -d
+# 2. 创建 .env 文件配置 AI API Key
+echo "GEMINI_API_KEY=your_api_key" > .env
 
-# 3. 访问 Web UI
+# 3. 构建并启动
+docker-compose up --build -d
+
+# 4. 访问 Web UI
 # http://127.0.0.1:8000/
 ```
 
 ### 调度器配置
 
-使用 `docker-compose.scheduler.yml` 或设置 `.env` 文件：
+编辑 `.env` 文件或直接修改 `docker-compose.yml`：
 
 | 环境变量 | 说明 | 默认值 |
 |---------|------|--------|
@@ -280,7 +283,7 @@ docker-compose -f docker-compose.scheduler.yml up --build -d
 | `BIND_HOST` | Web 服务绑定地址 | `0.0.0.0` |
 | `BIND_PORT` | Web 服务端口 | `8000` |
 
-AI 配置与旧版相同，支持 OpenAI / Gemini / Claude。
+AI 配置支持 OpenAI / Gemini / Claude。
 
 ### 任务类型
 
@@ -291,20 +294,20 @@ AI 配置与旧版相同，支持 OpenAI / Gemini / Claude。
 
 详细任务配置示例请参考 [docs/task-config-examples.md](docs/task-config-examples.md)。
 
-### 调度器常用命令
+### 常用命令
 
 ```bash
-# 启动调度器
-docker-compose -f docker-compose.scheduler.yml up -d
+# 启动
+docker-compose up -d
 
 # 查看日志
-docker-compose -f docker-compose.scheduler.yml logs -f
+docker-compose logs -f
 
 # 停止
-docker-compose -f docker-compose.scheduler.yml down
+docker-compose down
 
 # 重新构建
-docker-compose -f docker-compose.scheduler.yml up --build -d
+docker-compose up --build -d
 ```
 
 ---
@@ -316,10 +319,9 @@ EmbyCheckin/
 ├── checkin.py              # 旧版签到主程序
 ├── docker_entrypoint.py    # Docker 入口
 ├── requirements.txt        # Python 依赖
-├── Dockerfile              # 主镜像（含旧版+新版）
+├── Dockerfile              # 主镜像
 ├── Dockerfile.scheduler    # 调度器专用镜像
-├── docker-compose.yml      # 旧版单任务部署
-├── docker-compose.scheduler.yml  # 新版调度器部署
+├── docker-compose.yml      # Docker 部署配置
 ├── tools/
 │   └── config_ui.py        # 可视化配置器
 ├── embycheckin/            # 新版调度器模块
