@@ -50,8 +50,8 @@ services:
       - ./sessions:/app/sessions
       - ./logs:/app/logs
     ports:
-      # Web UI 端口（默认仅本机访问，VPS 可用 SSH 端口转发）
-      - "127.0.0.1:8765:8765"
+      # Web UI 端口
+      - "8765:8765"
     stdin_open: true
     tty: true
 
