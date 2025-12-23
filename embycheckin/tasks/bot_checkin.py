@@ -211,7 +211,7 @@ class BotCheckinTask(TaskHandler[BotCheckinConfig]):
             # 检查已签到
             matched, _ = _match_pattern(text, cfg.already_checked_patterns)
             if matched:
-                return TaskResult(success=True, message="Already checked in today", data={"already_checked": True})
+                return TaskResult(success=True, message="Already checked in today", data={"already_checked": True, "response": text})
 
             # 检查成功
             matched, extracted = _match_pattern(text, cfg.success_patterns)
@@ -219,18 +219,18 @@ class BotCheckinTask(TaskHandler[BotCheckinConfig]):
                 return TaskResult(
                     success=True,
                     message=f"Checkin success, extracted: {extracted or 'N/A'}",
-                    data={"extracted": extracted}
+                    data={"extracted": extracted, "response": text}
                 )
 
             # 检查失败
             matched, _ = _match_pattern(text, cfg.fail_patterns)
             if matched:
-                return TaskResult(success=False, message=f"Checkin failed: {text[:100]}")
+                return TaskResult(success=False, message=f"Checkin failed: {text[:100]}", data={"response": text})
 
             # 检查账号问题
             matched, _ = _match_pattern(text, cfg.account_error_patterns)
             if matched:
-                return TaskResult(success=False, message=f"Account issue: {text[:100]}")
+                return TaskResult(success=False, message=f"Account issue: {text[:100]}", data={"response": text})
 
         return TaskResult(success=False, message="Timeout waiting for checkin result")
 

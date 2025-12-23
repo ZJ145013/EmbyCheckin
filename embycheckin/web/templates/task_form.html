@@ -229,6 +229,22 @@
                                         placeholder="要发送的消息内容"
                                         class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">{{ task.params.message if task and task.params else '' }}</textarea>
                                 </div>
+
+                                <div class="col-span-6 sm:col-span-3">
+                                    <div class="flex items-center mt-2">
+                                        <input type="checkbox" name="wait_for_reply" id="wait_for_reply" {% if task and task.params and task.params.wait_for_reply %}checked{% endif %}
+                                            class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                                        <label class="ml-2 block text-sm text-gray-900">等待机器人回复</label>
+                                    </div>
+                                    <p class="mt-1 text-xs text-gray-500">启用后将捕获机器人回复内容到日志详情</p>
+                                </div>
+
+                                <div class="col-span-6 sm:col-span-3">
+                                    <label class="block text-sm font-medium text-gray-700">等待超时 (秒)</label>
+                                    <input type="number" name="msg_timeout" id="msg_timeout"
+                                        value="{{ task.params.timeout if task and task.params else 30 }}" min="1"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                </div>
                             </div>
                         </div>
 
@@ -332,7 +348,9 @@ function buildParams() {
         };
     } else if (taskType === 'send_message') {
         return {
-            message: document.getElementById('message').value
+            message: document.getElementById('message').value,
+            wait_for_reply: document.getElementById('wait_for_reply').checked,
+            timeout: parseInt(document.getElementById('msg_timeout').value) || 30
         };
     }
     return {};

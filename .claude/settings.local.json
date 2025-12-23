@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__codexmcp__codex",
+      "mcp__geminimcp__gemini",
+      "mcp__auggie__codebase-retrieval",
+      "Bash(GEMINI_API_KEY=sk-zjzj5522 GOOGLE_GEMINI_BASE_URL=https://geminicli.942645.xyz gemini -p:*)",
+      "Bash(dir:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
+    ]
+  }
+}
