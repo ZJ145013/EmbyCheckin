@@ -51,7 +51,7 @@
                         {{ run.started_at.strftime('%Y-%m-%d %H:%M:%S') if run.started_at else '-' }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {{ (run.duration_ms / 1000) | round(2) }}s if run.duration_ms else '-' }}
+                        {% if run.duration_ms %}{{ (run.duration_ms / 1000) | round(1) }}s{% else %}-{% endif %}
                     </td>
                     <td class="px-6 py-4 text-sm text-red-600 max-w-xs truncate" title="{{ run.error_message or '' }}">
                         {{ run.error_message[:50] + '...' if run.error_message and run.error_message|length > 50 else run.error_message or '-' }}
