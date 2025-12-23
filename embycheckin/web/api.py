@@ -135,6 +135,11 @@ async def delete_task(task_id: int, db: Session = Depends(get_db)):
     if _scheduler:
         _scheduler.remove_task(task_id)
 
+    # 先删除关联的执行记录
+    runs = db.exec(select(TaskRun).where(TaskRun.task_id == task_id)).all()
+    for run in runs:
+        db.delete(run)
+
     db.delete(task)
     db.commit()
     return {"deleted": True}
