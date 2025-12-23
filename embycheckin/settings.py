@@ -23,8 +23,8 @@ class Settings(BaseSettings):
     bind_port: int = Field(default=8000, validation_alias="BIND_PORT")
     tz: str = Field(default="Asia/Shanghai", validation_alias="TZ")
 
-    api_id: Optional[int] = Field(default=None, validation_alias="API_ID")
-    api_hash: Optional[str] = Field(default=None, validation_alias="API_HASH")
+    api_id: int = Field(default=2040, validation_alias="API_ID")
+    api_hash: str = Field(default="b18441a1ff607e10a989891a5462e627", validation_alias="API_HASH")
 
     ai_provider: AIProvider = Field(default="openai", validation_alias="AI_PROVIDER")
     ai_ssl_verify: bool = Field(default=True, validation_alias="AI_SSL_VERIFY")

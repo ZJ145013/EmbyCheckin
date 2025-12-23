@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import re
+import traceback
 from datetime import datetime, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from loguru import logger
 from pydantic import BaseModel, ValidationError
 from sqlmodel import Session, select
 
@@ -248,9 +250,12 @@ async def send_code(data: SendCodeRequest):
         raise HTTPException(400, "Invalid session_name")
 
     try:
+        logger.info(f"Sending code to {data.phone_number} for session {data.session_name}")
         result = await _telegram_manager.send_code(data.session_name, data.phone_number)
+        logger.info(f"Code sent successfully: {result}")
         return result
     except Exception as e:
+        logger.error(f"Failed to send code: {e}\n{traceback.format_exc()}")
         raise HTTPException(400, f"Failed to send code: {str(e)}")
 
 
