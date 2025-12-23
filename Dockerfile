@@ -23,6 +23,7 @@ RUN mkdir -p /app/sessions /app/logs /app/data
 ENV TZ=Asia/Shanghai
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-# 默认运行旧版签到入口（兼容）
-# 新版调度器使用: python -m uvicorn embycheckin.app:app --host 0.0.0.0 --port 8000
-CMD ["python", "-u", "docker_entrypoint.py"]
+EXPOSE 8765
+
+# 新版调度器入口
+CMD ["python", "-m", "uvicorn", "embycheckin.app:app", "--host", "0.0.0.0", "--port", "8765"]
