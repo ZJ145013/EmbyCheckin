@@ -77,12 +77,16 @@ class ButtonCheckinTask(TaskHandler[ButtonCheckinConfig]):
                     return TaskResult(success=False, message="Timeout waiting for panel")
 
                 # 查找并点击按钮
-                clicked = await self._click_button(ctx, panel_msg, cfg)
+                clicked, callback_text = await self._click_button(ctx, panel_msg, cfg)
 
                 if not clicked:
                     return TaskResult(success=False, message=f"Button '{cfg.button_text}' not found")
 
-                # 等待签到结果
+                # 如果有回调响应（弹窗），直接用它判断结果
+                if callback_text:
+                    return self._parse_result(callback_text, cfg)
+
+                # 否则等待新消息
                 result = await self._wait_for_result(ctx, router, bot_id, cfg)
                 return result
 
@@ -116,15 +120,47 @@ class ButtonCheckinTask(TaskHandler[ButtonCheckinConfig]):
         except asyncio.TimeoutError:
             return None
 
+    def _parse_result(self, text: str, cfg: ButtonCheckinConfig) -> TaskResult:
+        """解析响应文本，判断签到结果"""
+        # 检查已签到
+        for kw in cfg.already_checked_keywords:
+            if kw in text:
+                return TaskResult(
+                    success=True,
+                    message="Already checked in today",
+                    data={"already_checked": True, "response": text}
+                )
+
+        # 检查成功
+        for kw in cfg.success_keywords:
+            if kw in text:
+                return TaskResult(
+                    success=True,
+                    message=f"Checkin success: {text[:50]}",
+                    data={"response": text}
+                )
+
+        # 检查失败
+        for kw in cfg.fail_keywords:
+            if kw in text:
+                return TaskResult(success=False, message=f"Checkin failed: {text[:100]}")
+
+        # 默认认为成功（有响应）
+        return TaskResult(
+            success=True,
+            message=f"Got response: {text[:50]}",
+            data={"response": text}
+        )
+
     async def _click_button(
         self,
         ctx: TaskContext,
         msg: Any,
         cfg: ButtonCheckinConfig,
-    ) -> bool:
-        """查找并点击指定按钮"""
+    ) -> tuple[bool, str | None]:
+        """查找并点击指定按钮，返回 (是否点击成功, 回调响应文本)"""
         if not msg.reply_markup or not msg.reply_markup.inline_keyboard:
-            return False
+            return False, None
 
         target_text = cfg.button_text.lower()
 
@@ -136,8 +172,18 @@ class ButtonCheckinTask(TaskHandler[ButtonCheckinConfig]):
                     await asyncio.sleep(delay)
 
                     logger.info(f"[{ctx.task.name}] Clicking button: {button.text}")
-                    await msg.click(button.text)
-                    return True
+                    # click() 返回回调查询的响应（弹窗消息）
+                    callback_result = await msg.click(button.text)
+                    callback_text = None
+                    if callback_result:
+                        # 回调响应可能是字符串或对象
+                        if isinstance(callback_result, str):
+                            callback_text = callback_result
+                        elif hasattr(callback_result, 'message'):
+                            callback_text = callback_result.message
+                    if callback_text:
+                        logger.info(f"[{ctx.task.name}] Callback response: {callback_text}")
+                    return True, callback_text
 
         # 记录所有可用按钮
         all_buttons = []
@@ -147,7 +193,7 @@ class ButtonCheckinTask(TaskHandler[ButtonCheckinConfig]):
                     all_buttons.append(button.text)
         logger.warning(f"[{ctx.task.name}] Button '{cfg.button_text}' not found. Available: {all_buttons}")
 
-        return False
+        return False, None
 
     async def _wait_for_result(
         self,
@@ -167,36 +213,7 @@ class ButtonCheckinTask(TaskHandler[ButtonCheckinConfig]):
 
             text = msg.text or msg.caption or ""
             logger.info(f"[{ctx.task.name}] Result: {text[:100]}")
-
-            # 检查已签到
-            for kw in cfg.already_checked_keywords:
-                if kw in text:
-                    return TaskResult(
-                        success=True,
-                        message="Already checked in today",
-                        data={"already_checked": True}
-                    )
-
-            # 检查成功
-            for kw in cfg.success_keywords:
-                if kw in text:
-                    return TaskResult(
-                        success=True,
-                        message=f"Checkin success: {text[:50]}",
-                        data={"response": text}
-                    )
-
-            # 检查失败
-            for kw in cfg.fail_keywords:
-                if kw in text:
-                    return TaskResult(success=False, message=f"Checkin failed: {text[:100]}")
-
-            # 默认认为成功（有响应）
-            return TaskResult(
-                success=True,
-                message=f"Got response: {text[:50]}",
-                data={"response": text}
-            )
+            return self._parse_result(text, cfg)
 
         except asyncio.TimeoutError:
             return TaskResult(success=False, message="Timeout waiting for result")
