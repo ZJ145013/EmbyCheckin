@@ -8,3 +8,5 @@ __pycache__/
 .env
 docker-compose.local.yml
 .serena/
+.claude/
+data/
