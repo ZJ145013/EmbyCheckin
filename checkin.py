@@ -1009,11 +1009,11 @@ async def run_scheduled_checkin(client: Client, checkin: TerminusCheckin):
     """运行定时签到任务"""
     while True:
         try:
-            # 执行签到
-            await checkin.start()
-
-            # 等待下一次签到
+            # 先等待到签到时间
             await wait_until_next_checkin()
+
+            # 再执行签到
+            await checkin.start()
 
         except asyncio.CancelledError:
             logger.info("定时任务已取消")
