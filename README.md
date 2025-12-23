@@ -266,11 +266,11 @@ cd EmbyCheckin
 # 2. 创建 .env 文件配置 AI API Key
 echo "GEMINI_API_KEY=your_api_key" > .env
 
-# 3. 构建并启动
-docker-compose up --build -d
+# 3. 启动
+docker-compose up -d
 
 # 4. 访问 Web UI
-# http://127.0.0.1:8000/
+# http://127.0.0.1:8765/
 ```
 
 ### 调度器配置

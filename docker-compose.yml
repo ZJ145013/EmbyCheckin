@@ -6,9 +6,8 @@ services:
   # 新版调度器（推荐）- 支持多任务、Web UI 管理
   # ============================================
   scheduler:
-    build:
-      context: .
-      dockerfile: Dockerfile.scheduler
+    image: ghcr.io/zj145013/embycheckin:latest
+    platform: linux/amd64
     container_name: embycheckin-scheduler
     restart: always
     environment:
@@ -17,7 +16,7 @@ services:
 
       # Web 服务绑定
       - BIND_HOST=0.0.0.0
-      - BIND_PORT=8000
+      - BIND_PORT=8765
 
       # Telegram API
       - API_ID=${API_ID:-2040}
@@ -52,7 +51,7 @@ services:
       - ./logs:/app/logs
     ports:
       # Web UI 端口（默认仅本机访问，VPS 可用 SSH 端口转发）
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:8765:8765"
     stdin_open: true
     tty: true
 
