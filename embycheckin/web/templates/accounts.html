@@ -6,15 +6,15 @@
 <div class="px-4 py-6 sm:px-0">
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-semibold text-gray-900">账号管理</h1>
-        <button onclick="showAddAccount()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
-            添加账号
+        <button onclick="showLoginModal()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
+            登录新账号
         </button>
     </div>
 
     {% if not accounts %}
     <div class="text-center py-12">
         <p class="text-gray-500">暂无账号</p>
-        <p class="mt-2 text-sm text-gray-400">添加 Telegram 账号以创建任务</p>
+        <p class="mt-2 text-sm text-gray-400">点击"登录新账号"添加 Telegram 账号</p>
     </div>
     {% else %}
     <div class="bg-white shadow overflow-hidden sm:rounded-md">
@@ -34,74 +34,258 @@
         </ul>
     </div>
     {% endif %}
+</div>
 
-    <div class="mt-8 bg-yellow-50 border-l-4 border-yellow-400 p-4">
-        <div class="flex">
-            <div class="ml-3">
-                <p class="text-sm text-yellow-700">
-                    <strong>注意：</strong>添加账号前，请确保已在 <code>sessions/</code> 目录下存在对应的 Telegram session 文件。
-                    首次登录需要交互式运行原有的 <code>checkin.py</code> 完成登录。
-                </p>
+<!-- 登录模态框 -->
+<div id="loginModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">登录 Telegram 账号</h3>
+
+            <!-- 步骤 1: 输入手机号 -->
+            <div id="step1" class="login-step">
+                <form id="sendCodeForm">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Session 名称</label>
+                        <input type="text" name="session_name" id="sessionName" required
+                               placeholder="my_account"
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        <p class="mt-1 text-xs text-gray-500">用于标识此账号的唯一名称</p>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">手机号</label>
+                        <input type="text" name="phone_number" id="phoneNumber" required
+                               placeholder="+8613800138000"
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        <p class="mt-1 text-xs text-gray-500">带国际区号，如 +86</p>
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="hideLoginModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">
+                            取消
+                        </button>
+                        <button type="submit" id="sendCodeBtn" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                            发送验证码
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 步骤 2: 输入验证码 -->
+            <div id="step2" class="login-step hidden">
+                <form id="signInForm">
+                    <div class="mb-4">
+                        <p class="text-sm text-gray-600 mb-2">验证码已发送到 Telegram</p>
+                        <label class="block text-sm font-medium text-gray-700">验证码</label>
+                        <input type="text" name="code" id="verifyCode" required
+                               placeholder="12345"
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="cancelLogin()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">
+                            取消
+                        </button>
+                        <button type="submit" id="signInBtn" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                            登录
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 步骤 3: 两步验证 -->
+            <div id="step3" class="login-step hidden">
+                <form id="twoFAForm">
+                    <div class="mb-4">
+                        <p class="text-sm text-gray-600 mb-2">此账号启用了两步验证</p>
+                        <label class="block text-sm font-medium text-gray-700">两步验证密码</label>
+                        <input type="password" name="password" id="twoFAPassword" required
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="cancelLogin()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">
+                            取消
+                        </button>
+                        <button type="submit" id="twoFABtn" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                            验证
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 加载状态 -->
+            <div id="loadingStep" class="login-step hidden text-center py-4">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+                <p class="mt-2 text-sm text-gray-600" id="loadingText">处理中...</p>
+            </div>
+
+            <!-- 错误提示 -->
+            <div id="errorMsg" class="hidden mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p class="text-sm text-red-600" id="errorText"></p>
             </div>
         </div>
     </div>
 </div>
 
-<div id="addAccountModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <div class="mt-3">
-            <h3 class="text-lg font-medium text-gray-900 mb-4">添加账号</h3>
-            <form id="addAccountForm">
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700">账号名称</label>
-                    <input type="text" name="name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700">Session 名称</label>
-                    <input type="text" name="session_name" required placeholder="terminus_checkin" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
-                    <p class="mt-1 text-xs text-gray-500">对应 sessions/ 目录下的文件名（不含扩展名）</p>
-                </div>
-                <div class="flex justify-end space-x-3">
-                    <button type="button" onclick="hideAddAccount()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">
-                        取消
-                    </button>
-                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
-                        添加
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
 <script>
-function showAddAccount() {
-    document.getElementById('addAccountModal').classList.remove('hidden');
+let currentSessionName = '';
+let currentPhoneNumber = '';
+
+function showLoginModal() {
+    document.getElementById('loginModal').classList.remove('hidden');
+    showStep('step1');
+    hideError();
 }
-function hideAddAccount() {
-    document.getElementById('addAccountModal').classList.add('hidden');
+
+function hideLoginModal() {
+    document.getElementById('loginModal').classList.add('hidden');
+    resetForms();
 }
-document.getElementById('addAccountForm').addEventListener('submit', async function(e) {
+
+function showStep(stepId) {
+    document.querySelectorAll('.login-step').forEach(el => el.classList.add('hidden'));
+    document.getElementById(stepId).classList.remove('hidden');
+}
+
+function showLoading(text) {
+    document.getElementById('loadingText').textContent = text || '处理中...';
+    showStep('loadingStep');
+}
+
+function showError(msg) {
+    document.getElementById('errorText').textContent = msg;
+    document.getElementById('errorMsg').classList.remove('hidden');
+}
+
+function hideError() {
+    document.getElementById('errorMsg').classList.add('hidden');
+}
+
+function resetForms() {
+    document.getElementById('sendCodeForm').reset();
+    document.getElementById('signInForm').reset();
+    document.getElementById('twoFAForm').reset();
+    currentSessionName = '';
+    currentPhoneNumber = '';
+    hideError();
+}
+
+async function cancelLogin() {
+    if (currentSessionName) {
+        try {
+            await fetch('/api/v1/auth/cancel?session_name=' + encodeURIComponent(currentSessionName), {
+                method: 'POST'
+            });
+        } catch (e) {}
+    }
+    hideLoginModal();
+}
+
+// 发送验证码
+document.getElementById('sendCodeForm').addEventListener('submit', async function(e) {
     e.preventDefault();
-    const form = e.target;
-    const data = {
-        name: form.name.value,
-        session_name: form.session_name.value
-    };
+    hideError();
+
+    currentSessionName = document.getElementById('sessionName').value;
+    currentPhoneNumber = document.getElementById('phoneNumber').value;
+
+    showLoading('正在发送验证码...');
+
     try {
-        const resp = await fetch('/api/v1/accounts', {
+        const resp = await fetch('/api/v1/auth/send-code', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+            body: JSON.stringify({
+                session_name: currentSessionName,
+                phone_number: currentPhoneNumber
+            })
         });
-        if (resp.ok) {
-            location.reload();
+
+        const data = await resp.json();
+
+        if (resp.ok && data.status === 'code_sent') {
+            showStep('step2');
         } else {
-            const err = await resp.json();
-            alert('添加失败: ' + (err.detail || JSON.stringify(err)));
+            showStep('step1');
+            showError(data.detail || '发送验证码失败');
         }
     } catch (e) {
-        alert('请求失败: ' + e.message);
+        showStep('step1');
+        showError('请求失败: ' + e.message);
+    }
+});
+
+// 验证码登录
+document.getElementById('signInForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    hideError();
+
+    const code = document.getElementById('verifyCode').value;
+
+    showLoading('正在登录...');
+
+    try {
+        const resp = await fetch('/api/v1/auth/sign-in', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_name: currentSessionName,
+                phone_number: currentPhoneNumber,
+                code: code
+            })
+        });
+
+        const data = await resp.json();
+
+        if (resp.ok) {
+            if (data.status === 'success') {
+                alert('登录成功！');
+                location.reload();
+            } else if (data.status === '2fa_required') {
+                showStep('step3');
+            } else {
+                showStep('step2');
+                showError(data.detail || '登录失败');
+            }
+        } else {
+            showStep('step2');
+            showError(data.detail || '登录失败');
+        }
+    } catch (e) {
+        showStep('step2');
+        showError('请求失败: ' + e.message);
+    }
+});
+
+// 两步验证
+document.getElementById('twoFAForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    hideError();
+
+    const password = document.getElementById('twoFAPassword').value;
+
+    showLoading('正在验证...');
+
+    try {
+        const resp = await fetch('/api/v1/auth/sign-in-2fa', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_name: currentSessionName,
+                password: password
+            })
+        });
+
+        const data = await resp.json();
+
+        if (resp.ok && data.status === 'success') {
+            alert('登录成功！');
+            location.reload();
+        } else {
+            showStep('step3');
+            showError(data.detail || '验证失败');
+        }
+    } catch (e) {
+        showStep('step3');
+        showError('请求失败: ' + e.message);
     }
 });
 </script>

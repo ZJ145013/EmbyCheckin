@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI):
     scheduler = SchedulerService(runner=runner, session_factory=get_session)
     scheduler.start()
 
-    set_services(scheduler, runner)
+    set_services(scheduler, runner, telegram_manager)
 
     await scheduler.reload_all()
     logger.info("Scheduler started and tasks loaded")

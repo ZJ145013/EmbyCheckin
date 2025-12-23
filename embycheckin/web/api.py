@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from sqlmodel import Session, select
 
 from ..db import get_session
@@ -27,12 +27,14 @@ SESSION_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 _scheduler = None
 _runner = None
+_telegram_manager = None
 
 
-def set_services(scheduler, runner):
-    global _scheduler, _runner
+def set_services(scheduler, runner, telegram_manager=None):
+    global _scheduler, _runner, _telegram_manager
     _scheduler = scheduler
     _runner = runner
+    _telegram_manager = telegram_manager
 
 
 def get_db():
@@ -216,3 +218,99 @@ async def reload_scheduler():
         raise HTTPException(503, "Scheduler not available")
     await _scheduler.reload_all()
     return {"reloaded": True}
+
+
+# ==================== Telegram 登录 API ====================
+
+class SendCodeRequest(BaseModel):
+    session_name: str
+    phone_number: str
+
+
+class SignInRequest(BaseModel):
+    session_name: str
+    phone_number: str
+    code: str
+
+
+class SignIn2FARequest(BaseModel):
+    session_name: str
+    password: str
+
+
+@router.post("/auth/send-code")
+async def send_code(data: SendCodeRequest):
+    """发送 Telegram 验证码"""
+    if not _telegram_manager:
+        raise HTTPException(503, "Telegram manager not available")
+
+    if not SESSION_NAME_PATTERN.match(data.session_name):
+        raise HTTPException(400, "Invalid session_name")
+
+    try:
+        result = await _telegram_manager.send_code(data.session_name, data.phone_number)
+        return result
+    except Exception as e:
+        raise HTTPException(400, f"Failed to send code: {str(e)}")
+
+
+@router.post("/auth/sign-in")
+async def sign_in(data: SignInRequest, db: Session = Depends(get_db)):
+    """使用验证码登录"""
+    if not _telegram_manager:
+        raise HTTPException(503, "Telegram manager not available")
+
+    try:
+        result = await _telegram_manager.sign_in(data.session_name, data.phone_number, data.code)
+
+        # 登录成功后自动创建账号
+        if result.get("status") == "success":
+            existing = db.exec(select(Account).where(Account.session_name == data.session_name)).first()
+            if not existing:
+                user_info = result.get("user", {})
+                account_name = user_info.get("first_name") or user_info.get("username") or data.session_name
+                account = Account(name=account_name, session_name=data.session_name)
+                db.add(account)
+                db.commit()
+                db.refresh(account)
+                result["account_id"] = account.id
+
+        return result
+    except Exception as e:
+        raise HTTPException(400, f"Sign in failed: {str(e)}")
+
+
+@router.post("/auth/sign-in-2fa")
+async def sign_in_2fa(data: SignIn2FARequest, db: Session = Depends(get_db)):
+    """使用两步验证密码登录"""
+    if not _telegram_manager:
+        raise HTTPException(503, "Telegram manager not available")
+
+    try:
+        result = await _telegram_manager.sign_in_2fa(data.session_name, data.password)
+
+        # 登录成功后自动创建账号
+        if result.get("status") == "success":
+            existing = db.exec(select(Account).where(Account.session_name == data.session_name)).first()
+            if not existing:
+                user_info = result.get("user", {})
+                account_name = user_info.get("first_name") or user_info.get("username") or data.session_name
+                account = Account(name=account_name, session_name=data.session_name)
+                db.add(account)
+                db.commit()
+                db.refresh(account)
+                result["account_id"] = account.id
+
+        return result
+    except Exception as e:
+        raise HTTPException(400, f"2FA sign in failed: {str(e)}")
+
+
+@router.post("/auth/cancel")
+async def cancel_login(session_name: str):
+    """取消登录"""
+    if not _telegram_manager:
+        raise HTTPException(503, "Telegram manager not available")
+
+    await _telegram_manager.cancel_login(session_name)
+    return {"cancelled": True}
