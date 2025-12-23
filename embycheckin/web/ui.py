@@ -1,15 +1,32 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
+from croniter import croniter
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from pytz import timezone
 from sqlmodel import Session, select
 
 from ..db import get_session
 from ..models import Account, Task, TaskRun
 from ..tasks import list_task_types
+
+
+def get_next_run_time(task: Task) -> str | None:
+    """计算任务的下一次执行时间"""
+    if not task.enabled or not task.schedule_cron:
+        return None
+    try:
+        tz = timezone(task.timezone or "Asia/Shanghai")
+        now = datetime.now(tz)
+        cron = croniter(task.schedule_cron, now)
+        next_time = cron.get_next(datetime)
+        return next_time.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return None
 
 
 router = APIRouter()
@@ -26,6 +43,10 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     tasks = db.exec(select(Task).order_by(Task.id)).all()
     accounts = db.exec(select(Account)).all()
     recent_runs = db.exec(select(TaskRun).order_by(TaskRun.created_at.desc()).limit(10)).all()
+
+    # 为每个任务计算下一次执行时间
+    for task in tasks:
+        task.next_run = get_next_run_time(task)
 
     return templates.TemplateResponse("dashboard.html", {
         "request": request,

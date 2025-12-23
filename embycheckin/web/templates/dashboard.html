@@ -39,6 +39,11 @@
                                     <span class="truncate">{{ task.type }} | {{ task.target }} | {{ task.schedule_cron }}</span>
                                 </div>
                             </div>
+                            {% if task.enabled and task.next_run %}
+                            <div class="mt-1 text-xs text-blue-600">
+                                下次执行: {{ task.next_run }}
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                     <div class="ml-5 flex-shrink-0 flex space-x-2">

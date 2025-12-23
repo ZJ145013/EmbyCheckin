@@ -58,10 +58,30 @@
                             <div class="grid grid-cols-6 gap-4">
                                 <div class="col-span-6 sm:col-span-3">
                                     <label class="block text-sm font-medium text-gray-700">Cron 表达式</label>
-                                    <input type="text" name="schedule_cron" value="{{ task.schedule_cron if task else '0 9 * * *' }}" required
+                                    <input type="text" name="schedule_cron" id="schedule_cron" value="{{ task.schedule_cron if task else '0 9 * * *' }}" required
                                         placeholder="分 时 日 月 周"
                                         class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
                                     <p class="mt-1 text-xs text-gray-500">格式: 分 时 日 月 周 (例: 0 9 * * * 表示每天9点)</p>
+                                </div>
+
+                                <div class="col-span-6 sm:col-span-3">
+                                    <label class="block text-sm font-medium text-gray-700">快捷选择</label>
+                                    <select id="cronPreset" onchange="applyCronPreset()"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                                        <option value="">-- 自定义 --</option>
+                                        <option value="0 8 * * *">每天 8:00</option>
+                                        <option value="0 9 * * *">每天 9:00</option>
+                                        <option value="0 10 * * *">每天 10:00</option>
+                                        <option value="0 12 * * *">每天 12:00</option>
+                                        <option value="0 18 * * *">每天 18:00</option>
+                                        <option value="0 20 * * *">每天 20:00</option>
+                                        <option value="0 22 * * *">每天 22:00</option>
+                                        <option value="0 0 * * *">每天 0:00 (午夜)</option>
+                                        <option value="0 */6 * * *">每6小时</option>
+                                        <option value="0 */12 * * *">每12小时</option>
+                                        <option value="0 9 * * 1-5">工作日 9:00</option>
+                                        <option value="0 9 * * 0,6">周末 9:00</option>
+                                    </select>
                                 </div>
 
                                 <div class="col-span-6 sm:col-span-3">
@@ -182,6 +202,13 @@
 </div>
 
 <script>
+function applyCronPreset() {
+    const preset = document.getElementById('cronPreset').value;
+    if (preset) {
+        document.getElementById('schedule_cron').value = preset;
+    }
+}
+
 function toggleTaskConfig() {
     const taskType = document.getElementById('taskType').value;
     const botCheckinConfig = document.getElementById('botCheckinConfig');
