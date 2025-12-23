@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncIterator, Optional
 
+from loguru import logger
 from pyrogram import Client
 from pyrogram.errors import SessionPasswordNeeded
 
@@ -20,11 +21,12 @@ class LoginSession:
 
 class TelegramClientManager:
     def __init__(self, sessions_dir: str = "sessions") -> None:
-        self._sessions_dir = Path(sessions_dir)
+        self._sessions_dir = Path(sessions_dir).resolve()
         self._sessions_dir.mkdir(parents=True, exist_ok=True)
         self._clients: dict[str, Client] = {}
         self._locks: dict[str, asyncio.Lock] = {}
         self._login_sessions: dict[str, LoginSession] = {}
+        logger.info(f"TelegramClientManager initialized with sessions_dir: {self._sessions_dir}")
 
     def _get_lock(self, session_name: str) -> asyncio.Lock:
         if session_name not in self._locks:
@@ -41,10 +43,15 @@ class TelegramClientManager:
 
     async def send_code(self, session_name: str, phone_number: str) -> dict:
         """发送验证码，返回登录会话信息"""
+        session_path = str(self._sessions_dir / session_name)
+        logger.info(f"Creating client with session path: {session_path}")
+
         client = self._create_client(session_name, phone_number)
-        await client.connect()
 
         try:
+            logger.info("Connecting to Telegram...")
+            await client.connect()
+            logger.info("Connected, sending code...")
             sent_code = await client.send_code(phone_number)
             self._login_sessions[session_name] = LoginSession(client, sent_code.phone_code_hash)
             return {
@@ -53,7 +60,11 @@ class TelegramClientManager:
                 "status": "code_sent"
             }
         except Exception as e:
-            await client.disconnect()
+            logger.error(f"Error in send_code: {e}")
+            try:
+                await client.disconnect()
+            except:
+                pass
             raise e
 
     async def sign_in(self, session_name: str, phone_number: str, code: str) -> dict:
