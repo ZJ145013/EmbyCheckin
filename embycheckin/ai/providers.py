@@ -38,6 +38,8 @@ async def _analyze_with_gemini(
         return "", "GEMINI_API_KEY not configured"
 
     base_url = settings.gemini_base_url.rstrip("/")
+    if "/v1beta" not in base_url and "/v1" not in base_url:
+        base_url = f"{base_url}/v1beta"
     model = settings.gemini_model
     url = f"{base_url}/models/{model}:generateContent"
 
