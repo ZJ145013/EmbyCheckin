@@ -78,6 +78,11 @@ class TaskRunner:
 
         lock = self._lock_for_account(task_snap.account_id)
         async with lock:
+            # 首次执行前应用 jitter 延迟
+            if task_snap.jitter_seconds > 0:
+                jitter = random.uniform(0.0, float(task_snap.jitter_seconds))
+                await asyncio.sleep(jitter)
+
             start_time = time.perf_counter()
             await self._db(lambda s: self._mark_run_running(s, run_id))
 
