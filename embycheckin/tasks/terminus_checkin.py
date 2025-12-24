@@ -76,8 +76,9 @@ class TerminusCheckinTask(TaskHandler[TerminusCheckinConfig]):
 
                 router.clear_queue(ctx.account.id, bot_id)
 
-                delay = random.uniform(cfg.random_delay_min, cfg.random_delay_max)
-                await asyncio.sleep(delay)
+                if ctx.triggered_by != "manual":
+                    delay = random.uniform(cfg.random_delay_min, cfg.random_delay_max)
+                    await asyncio.sleep(delay)
 
                 await client.send_message(ctx.task.target, cfg.command)
                 logger.info(f"[{ctx.task.name}] Sent {cfg.command} to {ctx.task.target}")

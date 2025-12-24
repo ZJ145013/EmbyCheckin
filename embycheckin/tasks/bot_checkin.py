@@ -152,9 +152,10 @@ class BotCheckinTask(TaskHandler[BotCheckinConfig]):
 
                 router.clear_queue(ctx.account.id, bot_id)
 
-                # 随机延迟
-                delay = random.uniform(cfg.random_delay_min, cfg.random_delay_max)
-                await asyncio.sleep(delay)
+                # 随机延迟（手动触发时跳过）
+                if ctx.triggered_by != "manual":
+                    delay = random.uniform(cfg.random_delay_min, cfg.random_delay_max)
+                    await asyncio.sleep(delay)
 
                 # 发送签到命令
                 await client.send_message(ctx.task.target, cfg.command)

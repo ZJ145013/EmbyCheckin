@@ -167,9 +167,10 @@ class ButtonCheckinTask(TaskHandler[ButtonCheckinConfig]):
         for row in msg.reply_markup.inline_keyboard:
             for button in row:
                 if button.text and target_text in button.text.lower():
-                    # 随机延迟后点击
-                    delay = random.uniform(cfg.random_delay_min, cfg.random_delay_max)
-                    await asyncio.sleep(delay)
+                    # 随机延迟后点击（手动触发时跳过）
+                    if ctx.triggered_by != "manual":
+                        delay = random.uniform(cfg.random_delay_min, cfg.random_delay_max)
+                        await asyncio.sleep(delay)
 
                     logger.info(f"[{ctx.task.name}] Clicking button: {button.text}")
                     # click() 返回回调查询的响应（弹窗消息）

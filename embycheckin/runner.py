@@ -78,8 +78,8 @@ class TaskRunner:
 
         lock = self._lock_for_account(task_snap.account_id)
         async with lock:
-            # 首次执行前应用 jitter 延迟
-            if task_snap.jitter_seconds > 0:
+            # 首次执行前应用 jitter 延迟（手动触发时跳过）
+            if task_snap.jitter_seconds > 0 and triggered_by != "manual":
                 jitter = random.uniform(0.0, float(task_snap.jitter_seconds))
                 await asyncio.sleep(jitter)
 
@@ -101,6 +101,7 @@ class TaskRunner:
                         now=utcnow(),
                         settings=self._settings,
                         resources={**self._resources, "runner": self},
+                        triggered_by=triggered_by,
                     )
                     result: TaskResult = await asyncio.wait_for(
                         handler.execute(ctx, cfg), timeout=task_snap.max_runtime_seconds

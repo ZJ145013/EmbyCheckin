@@ -42,6 +42,7 @@ class TaskContext:
     now: datetime
     settings: Any
     resources: dict[str, Any] = field(default_factory=dict)
+    triggered_by: str = "scheduler"
 
 
 @dataclass(slots=True)
