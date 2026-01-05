@@ -39,12 +39,11 @@ def get_db():
 
 
 @router.get("/", response_class=HTMLResponse)
-async def dashboard(request: Request, db: Session = Depends(get_db)):
+def dashboard(request: Request, db: Session = Depends(get_db)):
     tasks = db.exec(select(Task).order_by(Task.id)).all()
     accounts = db.exec(select(Account)).all()
     recent_runs = db.exec(select(TaskRun).order_by(TaskRun.created_at.desc()).limit(10)).all()
 
-    # 计算每个任务的下一次执行时间
     next_runs = {task.id: get_next_run_time(task) for task in tasks}
 
     return templates.TemplateResponse("dashboard.html", {
@@ -58,7 +57,7 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/tasks/new", response_class=HTMLResponse)
-async def new_task(request: Request, db: Session = Depends(get_db)):
+def new_task(request: Request, db: Session = Depends(get_db)):
     accounts = db.exec(select(Account)).all()
     return templates.TemplateResponse("task_form.html", {
         "request": request,
@@ -69,7 +68,7 @@ async def new_task(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/tasks/{task_id}/edit", response_class=HTMLResponse)
-async def edit_task(task_id: int, request: Request, db: Session = Depends(get_db)):
+def edit_task(task_id: int, request: Request, db: Session = Depends(get_db)):
     task = db.get(Task, task_id)
     accounts = db.exec(select(Account)).all()
     return templates.TemplateResponse("task_form.html", {
@@ -81,7 +80,7 @@ async def edit_task(task_id: int, request: Request, db: Session = Depends(get_db
 
 
 @router.get("/tasks/{task_id}/runs", response_class=HTMLResponse)
-async def task_runs(task_id: int, request: Request, db: Session = Depends(get_db)):
+def task_runs(task_id: int, request: Request, db: Session = Depends(get_db)):
     task = db.get(Task, task_id)
     runs = db.exec(
         select(TaskRun)
@@ -97,7 +96,7 @@ async def task_runs(task_id: int, request: Request, db: Session = Depends(get_db
 
 
 @router.get("/logs", response_class=HTMLResponse)
-async def all_logs(request: Request, db: Session = Depends(get_db)):
+def all_logs(request: Request, db: Session = Depends(get_db)):
     runs = db.exec(select(TaskRun).order_by(TaskRun.created_at.desc()).limit(100)).all()
     return templates.TemplateResponse("logs.html", {
         "request": request,
@@ -107,7 +106,7 @@ async def all_logs(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/accounts", response_class=HTMLResponse)
-async def accounts_page(request: Request, db: Session = Depends(get_db)):
+def accounts_page(request: Request, db: Session = Depends(get_db)):
     accounts = db.exec(select(Account)).all()
     return templates.TemplateResponse("accounts.html", {
         "request": request,

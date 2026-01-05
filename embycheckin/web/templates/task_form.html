@@ -231,32 +231,31 @@ function taskForm() {
         isEdit: {{ 'true' if task else 'false' }},
         taskId: {{ task.id if task else 'null' }},
         form: {
-            name: "{{ task.name if task else '' }}",
-            type: "{{ task.type if task else 'bot_checkin' }}",
-            account_id: "{{ task.account_id if task else '' }}",
-            target: "{{ task.target if task else '' }}",
-            schedule_cron: "{{ task.schedule_cron if task else '0 9 * * *' }}",
-            timezone: "{{ task.timezone if task else 'Asia/Shanghai' }}",
+            name: {{ (task.name if task else '') | tojson }},
+            type: {{ (task.type if task else 'bot_checkin') | tojson }},
+            account_id: {{ (task.account_id | string if task else '') | tojson }},
+            target: {{ (task.target if task else '') | tojson }},
+            schedule_cron: {{ (task.schedule_cron if task else '0 9 * * *') | tojson }},
+            timezone: {{ (task.timezone if task else 'Asia/Shanghai') | tojson }},
             retries: {{ task.retries if task else 0 }},
             max_runtime_seconds: {{ task.max_runtime_seconds if task else 120 }},
             jitter_seconds: {{ task.jitter_seconds if task else 0 }},
             enabled: {{ 'true' if (not task or task.enabled) else 'false' }}
         },
-        // Separate params for each type to avoid conflicts/overwriting when switching
         params: {
             bot_checkin: {
-                command: "{{ task.params.command if task and task.params else '/checkin' }}",
+                command: {{ (task.params.command if task and task.params else '/checkin') | tojson }},
                 timeout: {{ task.params.timeout if task and task.params else 60 }},
                 use_ai: {{ 'true' if (task and task.params and task.params.use_ai) else 'false' }},
-                success_keywords: "{{ ','.join(task.params.success_patterns.keywords) if task and task.params and task.params.success_patterns else '签到成功,成功签到,获得,积分,恭喜,完成签到' }}"
+                success_keywords: {{ (','.join(task.params.success_patterns.keywords) if task and task.params and task.params.success_patterns else '签到成功,成功签到,获得,积分,恭喜,完成签到') | tojson }}
             },
             button_checkin: {
-                trigger_command: "{{ task.params.trigger_command if task and task.params else '/start' }}",
-                button_text: "{{ task.params.button_text if task and task.params else '签到' }}",
-                success_keywords: "{{ ','.join(task.params.success_keywords) if task and task.params and task.params.success_keywords else '签到成功,成功,获得,积分,恭喜,完成,米币' }}"
+                trigger_command: {{ (task.params.trigger_command if task and task.params else '/start') | tojson }},
+                button_text: {{ (task.params.button_text if task and task.params else '签到') | tojson }},
+                success_keywords: {{ (','.join(task.params.success_keywords) if task and task.params and task.params.success_keywords else '签到成功,成功,获得,积分,恭喜,完成,米币') | tojson }}
             },
             send_message: {
-                message: `{{ task.params.message if task and task.params else '' }}`,
+                message: {{ (task.params.message if task and task.params else '') | tojson }},
                 wait_for_reply: {{ 'true' if (task and task.params and task.params.wait_for_reply) else 'false' }}
             }
         },

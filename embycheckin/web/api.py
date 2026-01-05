@@ -160,6 +160,7 @@ async def run_task_now(task_id: int, db: Session = Depends(get_db)):
 
 @router.get("/tasks/{task_id}/runs", response_model=list[RunResponse])
 async def list_task_runs(task_id: int, limit: int = 20, db: Session = Depends(get_db)):
+    limit = min(limit, 200)
     query = (
         select(TaskRun)
         .where(TaskRun.task_id == task_id)
@@ -171,6 +172,7 @@ async def list_task_runs(task_id: int, limit: int = 20, db: Session = Depends(ge
 
 @router.get("/runs", response_model=list[RunResponse])
 async def list_runs(limit: int = 50, db: Session = Depends(get_db)):
+    limit = min(limit, 200)
     query = select(TaskRun).order_by(TaskRun.created_at.desc()).limit(limit)
     return db.exec(query).all()
 
