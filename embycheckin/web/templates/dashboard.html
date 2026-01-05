@@ -1,94 +1,225 @@
 {% extends "base.html" %}
 
-{% block title %}任务列表 - EmbyCheckin{% endblock %}
+{% block header_title %}仪表盘{% endblock %}
+
+{% block title %}仪表盘 - EmbyCheckin{% endblock %}
 
 {% block content %}
-<div class="px-4 py-6 sm:px-0">
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-semibold text-gray-900">任务列表</h1>
-        <a href="/tasks/new" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
-            新建任务
+<div class="space-y-6">
+    <!-- Stats Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">总任务数</p>
+                    <p class="text-3xl font-bold text-gray-900 mt-1">{{ tasks|length }}</p>
+                </div>
+                <div class="bg-indigo-50 p-3 rounded-lg">
+                    <i class="ri-stack-line text-indigo-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">运行中任务</p>
+                    <p class="text-3xl font-bold text-green-600 mt-1">
+                        {{ tasks | selectattr("enabled") | list | length }}
+                    </p>
+                </div>
+                <div class="bg-green-50 p-3 rounded-lg">
+                    <i class="ri-play-circle-line text-green-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">最近执行</p>
+                    <p class="text-3xl font-bold text-blue-600 mt-1">{{ recent_runs|length }}</p>
+                </div>
+                <div class="bg-blue-50 p-3 rounded-lg">
+                    <i class="ri-history-line text-blue-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tasks Header -->
+    <div class="flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-800">任务列表</h3>
+        <a href="/tasks/new" class="inline-flex items-center px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200">
+            <i class="ri-add-line mr-1.5"></i>新建任务
         </a>
     </div>
 
     {% if not tasks %}
-    <div class="text-center py-12">
-        <p class="text-gray-500">暂无任务</p>
-        <a href="/tasks/new" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-indigo-600 bg-indigo-100 hover:bg-indigo-200">
+    <div class="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
+        <div class="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="ri-task-line text-3xl text-gray-400"></i>
+        </div>
+        <h3 class="text-lg font-medium text-gray-900">暂无任务</h3>
+        <p class="text-gray-500 mt-1 mb-6">创建一个新任务来开始自动签到</p>
+        <a href="/tasks/new" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200">
             创建第一个任务
         </a>
     </div>
     {% else %}
-    <div class="bg-white shadow overflow-hidden sm:rounded-md">
-        <ul class="divide-y divide-gray-200">
-            {% for task in tasks %}
-            <li>
-                <div class="px-4 py-4 flex items-center sm:px-6">
-                    <div class="min-w-0 flex-1 sm:flex sm:items-center sm:justify-between">
-                        <div class="truncate">
-                            <div class="flex text-sm">
-                                <p class="font-medium text-indigo-600 truncate">{{ task.name }}</p>
-                                <p class="ml-1 flex-shrink-0 font-normal text-gray-500">
-                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {% if task.enabled %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}">
-                                        {{ '启用' if task.enabled else '禁用' }}
-                                    </span>
-                                </p>
-                            </div>
-                            <div class="mt-2 flex">
-                                <div class="flex items-center text-sm text-gray-500">
-                                    <span class="truncate">{{ task.type }} | {{ task.target }} | {{ task.schedule_cron }}</span>
-                                </div>
-                            </div>
-                            {% if task.enabled and next_runs.get(task.id) %}
-                            <div class="mt-1 text-xs text-blue-600">
-                                下次执行: {{ next_runs.get(task.id) }}
-                            </div>
-                            {% endif %}
-                        </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for task in tasks %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col h-full">
+            <!-- Card Header -->
+            <div class="p-5 border-b border-gray-50 flex items-start justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-lg flex items-center justify-center {% if task.type == 'bot_checkin' %}bg-purple-50 text-purple-600{% elif task.type == 'send_message' %}bg-blue-50 text-blue-600{% else %}bg-orange-50 text-orange-600{% endif %}">
+                        {% if task.type == 'bot_checkin' %}
+                        <i class="ri-robot-line text-xl"></i>
+                        {% elif task.type == 'send_message' %}
+                        <i class="ri-message-3-line text-xl"></i>
+                        {% else %}
+                        <i class="ri-cursor-line text-xl"></i>
+                        {% endif %}
                     </div>
-                    <div class="ml-5 flex-shrink-0 flex space-x-2">
-                        <button onclick="runTask({{ task.id }})" class="px-3 py-1 text-sm text-green-600 hover:text-green-900">运行</button>
-                        <button onclick="toggleTask({{ task.id }}, {{ 'false' if task.enabled else 'true' }})" class="px-3 py-1 text-sm text-yellow-600 hover:text-yellow-900">
-                            {{ '禁用' if task.enabled else '启用' }}
-                        </button>
-                        <a href="/tasks/{{ task.id }}/edit" class="px-3 py-1 text-sm text-indigo-600 hover:text-indigo-900">编辑</a>
-                        <a href="/tasks/{{ task.id }}/runs" class="px-3 py-1 text-sm text-gray-600 hover:text-gray-900">日志</a>
-                        <button onclick="confirmDelete('/api/v1/tasks/{{ task.id }}')" class="px-3 py-1 text-sm text-red-600 hover:text-red-900">删除</button>
+                    <div>
+                        <h4 class="text-base font-semibold text-gray-900 truncate max-w-[12rem]" title="{{ task.name }}">{{ task.name }}</h4>
+                        <p class="text-xs text-gray-500 flex items-center mt-0.5">
+                            <span class="w-1.5 h-1.5 rounded-full mr-1.5 {% if task.enabled %}bg-green-500 animate-pulse{% else %}bg-gray-400{% endif %}"></span>
+                            {{ '运行中' if task.enabled else '已暂停' }}
+                        </p>
                     </div>
                 </div>
-            </li>
-            {% endfor %}
-        </ul>
+                <div class="relative" x-data="{ open: false }">
+                    <button @click="open = !open" @click.outside="open = false" class="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors">
+                        <i class="ri-more-2-fill text-xl"></i>
+                    </button>
+                    <!-- Dropdown -->
+                    <div x-show="open" 
+                         x-transition:enter="transition ease-out duration-100"
+                         x-transition:enter-start="transform opacity-0 scale-95"
+                         x-transition:enter-end="transform opacity-100 scale-100"
+                         x-cloak
+                         class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 border border-gray-100">
+                        <a href="/tasks/{{ task.id }}/edit" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            <i class="ri-edit-line mr-2 align-middle text-gray-500"></i>编辑
+                        </a>
+                        <a href="/tasks/{{ task.id }}/runs" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            <i class="ri-file-list-line mr-2 align-middle text-gray-500"></i>日志
+                        </a>
+                        <button onclick="confirmDelete('/api/v1/tasks/{{ task.id }}')" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                            <i class="ri-delete-bin-line mr-2 align-middle"></i>删除
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card Body -->
+            <div class="p-5 flex-1 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase tracking-wider font-medium">目标对象</p>
+                        <p class="text-sm font-medium text-gray-700 mt-1 truncate" title="{{ task.target }}">@{{ task.target }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase tracking-wider font-medium">Cron 表达式</p>
+                        <p class="text-sm font-mono text-gray-600 mt-1 bg-gray-100 inline-block px-1.5 py-0.5 rounded">{{ task.schedule_cron }}</p>
+                    </div>
+                </div>
+                
+                {% if task.enabled and next_runs.get(task.id) %}
+                <div class="bg-indigo-50 rounded-lg p-3 flex items-start space-x-3">
+                    <i class="ri-time-line text-indigo-500 mt-0.5"></i>
+                    <div>
+                        <p class="text-xs text-indigo-600 font-semibold uppercase">下次执行</p>
+                        <p class="text-sm text-indigo-900 mt-0.5">{{ next_runs.get(task.id) }}</p>
+                    </div>
+                </div>
+                {% elif not task.enabled %}
+                <div class="bg-gray-50 rounded-lg p-3 flex items-center justify-center text-gray-400 text-sm italic">
+                    任务已暂停
+                </div>
+                {% else %}
+                <div class="bg-yellow-50 rounded-lg p-3 flex items-center justify-center text-yellow-600 text-sm italic">
+                    调度未生效
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Card Footer -->
+            <div class="px-5 py-4 bg-gray-50 border-t border-gray-100 rounded-b-xl flex justify-between items-center">
+                <button onclick="toggleTask({{ task.id }}, {{ 'false' if task.enabled else 'true' }})" 
+                    class="text-sm font-medium transition-colors focus:outline-none {{ 'text-red-600 hover:text-red-700' if task.enabled else 'text-green-600 hover:text-green-700' }}">
+                    {{ '停止调度' if task.enabled else '启用调度' }}
+                </button>
+                <button onclick="runTask({{ task.id }})" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all active:scale-95">
+                    <i class="ri-play-fill mr-1"></i>立即运行
+                </button>
+            </div>
+        </div>
+        {% endfor %}
     </div>
     {% endif %}
 
+    <!-- Recent Runs Section -->
     {% if recent_runs %}
-    <div class="mt-8">
-        <h2 class="text-lg font-medium text-gray-900 mb-4">最近执行</h2>
-        <div class="bg-white shadow overflow-hidden sm:rounded-md">
-            <ul class="divide-y divide-gray-200">
-                {% for run in recent_runs %}
-                <li class="px-4 py-3">
-                    <div class="flex items-center justify-between">
-                        <div class="text-sm">
-                            <span class="font-medium">任务 #{{ run.task_id }}</span>
-                            <span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                {% if run.status == 'success' %}bg-green-100 text-green-800
-                                {% elif run.status == 'failed' %}bg-red-100 text-red-800
-                                {% elif run.status == 'running' %}bg-blue-100 text-blue-800
-                                {% else %}bg-gray-100 text-gray-800{% endif %}">
-                                {{ run.status }}
-                            </span>
-                        </div>
-                        <div class="text-sm text-gray-500">
-                            {{ run.created_at.strftime('%Y-%m-%d %H:%M:%S') if run.created_at else '' }}
-                        </div>
-                    </div>
-                </li>
-                {% endfor %}
-            </ul>
+    <div class="mt-10">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">最近活动</h3>
+        <div class="bg-white shadow-sm rounded-xl border border-gray-100 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">任务ID</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">触发方式</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时间</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">结果</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for run in recent_runs %}
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if run.status == 'success' %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                    <i class="ri-check-line mr-1"></i>成功
+                                </span>
+                                {% elif run.status == 'failed' %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                    <i class="ri-close-line mr-1"></i>失败
+                                </span>
+                                {% elif run.status == 'running' %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    <i class="ri-loader-4-line mr-1 animate-spin"></i>运行中
+                                </span>
+                                {% else %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                    {{ run.status }}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                #{{ run.task_id }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ run.triggered_by }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ run.created_at.strftime('%Y-%m-%d %H:%M') if run.created_at else '-' }}
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title="{{ run.error_message or (run.result.message if run.result else '') }}">
+                                {{ run.error_message or (run.result.message if run.result else '') or '-' }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 text-right sm:px-6">
+                <a href="/logs" class="text-sm font-medium text-indigo-600 hover:text-indigo-900">查看所有日志 &rarr;</a>
+            </div>
         </div>
     </div>
     {% endif %}
 </div>
 {% endblock %}
+

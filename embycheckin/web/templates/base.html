@@ -4,59 +4,204 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}EmbyCheckin{% endblock %}</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <!-- Remix Icon -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.1.0/fonts/remixicon.css" rel="stylesheet"/>
     <style>
         [x-cloak] { display: none !important; }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6366f1', // Indigo 500
+                        secondary: '#64748b', // Slate 500
+                    }
+                }
+            }
+        }
+    </script>
 </head>
-<body class="bg-gray-100 min-h-screen">
-    <nav class="bg-white shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex">
-                    <div class="flex-shrink-0 flex items-center">
-                        <a href="/" class="text-xl font-bold text-gray-900">EmbyCheckin</a>
+<body class="bg-gray-50 text-gray-800 font-sans antialiased" x-data="{ sidebarOpen: false }">
+
+    <!-- Mobile Header -->
+    <div class="md:hidden flex items-center justify-between bg-white shadow-sm px-4 py-3 sticky top-0 z-20">
+        <div class="flex items-center space-x-2">
+            <i class="ri-robot-2-line text-2xl text-primary"></i>
+            <span class="text-xl font-bold text-gray-800">EmbyCheckin</span>
+        </div>
+        <button @click="sidebarOpen = !sidebarOpen" class="text-gray-600 focus:outline-none">
+            <i class="ri-menu-line text-2xl"></i>
+        </button>
+    </div>
+
+    <!-- Sidebar -->
+    <div 
+        :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
+        class="fixed inset-y-0 left-0 z-30 w-64 bg-slate-900 text-white transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:inset-auto md:flex md:flex-col shadow-xl"
+        x-cloak="mobile"
+    >
+        <!-- Logo -->
+        <div class="flex items-center space-x-3 px-6 h-16 bg-slate-950">
+            <div class="bg-primary/20 p-1.5 rounded-lg">
+                <i class="ri-robot-2-fill text-xl text-primary"></i>
+            </div>
+            <span class="text-lg font-bold tracking-wide">EmbyCheckin</span>
+        </div>
+
+        <!-- Nav Links -->
+        <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            <a href="/" class="flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors {% if request.url.path == '/' %}bg-primary text-white shadow-lg shadow-primary/30{% else %}text-slate-300 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="ri-dashboard-line text-lg"></i>
+                <span class="font-medium">仪表盘</span>
+            </a>
+            <a href="/accounts" class="flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors {% if request.url.path.startswith('/accounts') %}bg-primary text-white shadow-lg shadow-primary/30{% else %}text-slate-300 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="ri-user-settings-line text-lg"></i>
+                <span class="font-medium">账号管理</span>
+            </a>
+            <a href="/logs" class="flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors {% if request.url.path.startswith('/logs') %}bg-primary text-white shadow-lg shadow-primary/30{% else %}text-slate-300 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="ri-file-list-3-line text-lg"></i>
+                <span class="font-medium">执行日志</span>
+            </a>
+        </nav>
+
+        <!-- Footer -->
+        <div class="p-4 bg-slate-950 border-t border-slate-800">
+            <div class="flex items-center space-x-3 px-2">
+                <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold">Admin</div>
+                <div>
+                    <p class="text-sm font-medium">Administrator</p>
+                    <p class="text-xs text-slate-500">System Owner</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay for mobile -->
+    <div 
+        x-show="sidebarOpen" 
+        @click="sidebarOpen = false" 
+        class="fixed inset-0 bg-black/50 z-20 md:hidden glass"
+        x-transition.opacity
+    ></div>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col min-h-screen overflow-hidden">
+        <header class="hidden md:flex items-center justify-between h-16 bg-white shadow-sm px-8 sticky top-0 z-10">
+            <h2 class="text-xl font-semibold text-gray-800">
+                {% block header_title %}控制台{% endblock %}
+            </h2>
+            <div class="flex items-center space-x-4">
+                <a href="https://github.com/ZJ145013/EmbyCheckin" target="_blank" class="text-gray-500 hover:text-gray-700 transition-colors">
+                    <i class="ri-github-fill text-2xl"></i>
+                </a>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-4 md:p-8">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- Global Toast Notification -->
+    <div 
+        x-data="{ show: false, message: '', type: 'success' }" 
+        @toast.window="show = true; message = $event.detail.message; type = $event.detail.type || 'success'; setTimeout(() => show = false, 3000)"
+        class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"
+        style="pointer-events: none;"
+    >
+        <div 
+            x-show="show" 
+            x-transition:enter="transform ease-out duration-300 transition"
+            x-transition:enter-start="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
+            x-transition:enter-end="translate-y-0 opacity-100 sm:translate-x-0"
+            x-transition:leave="transition ease-in duration-100"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+            class="pointer-events-auto max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden"
+        >
+            <div class="p-4">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <i class="ri-checkbox-circle-fill text-green-400 text-xl" x-show="type === 'success'"></i>
+                        <i class="ri-error-warning-fill text-red-400 text-xl" x-show="type === 'error'"></i>
+                        <i class="ri-information-fill text-blue-400 text-xl" x-show="type === 'info'"></i>
                     </div>
-                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-                        <a href="/" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            任务列表
-                        </a>
-                        <a href="/logs" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            执行日志
-                        </a>
-                        <a href="/accounts" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            账号管理
-                        </a>
+                    <div class="ml-3 w-0 flex-1 pt-0.5">
+                        <p class="text-sm font-medium text-gray-900" x-text="message"></p>
+                    </div>
+                    <div class="ml-4 flex-shrink-0 flex">
+                        <button @click="show = false" class="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                            <span class="sr-only">Close</span>
+                            <i class="ri-close-line text-lg"></i>
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
-    </nav>
-
-    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        {% block content %}{% endblock %}
-    </main>
+    </div>
 
     <script>
+        // Global helper for toast
+        function showToast(message, type = 'success') {
+            window.dispatchEvent(new CustomEvent('toast', { detail: { message, type } }));
+        }
+
         function confirmDelete(url) {
-            if (confirm('确定要删除吗？')) {
+            if (confirm('确定要删除吗？此操作无法撤销。')) {
                 fetch(url, { method: 'DELETE' })
-                    .then(r => r.json())
-                    .then(() => location.reload());
+                    .then(async r => {
+                        if(r.ok) {
+                            showToast('删除成功');
+                            setTimeout(() => location.reload(), 500);
+                        } else {
+                            const d = await r.json();
+                            showToast(d.detail || '删除失败', 'error');
+                        }
+                    })
+                    .catch(e => showToast('网络错误: ' + e.message, 'error'));
             }
         }
+        
         function runTask(taskId) {
+            showToast('正在将任务加入队列...', 'info');
             fetch('/api/v1/tasks/' + taskId + '/run', { method: 'POST' })
-                .then(r => r.json())
-                .then(() => alert('任务已加入队列'));
+                .then(async r => {
+                    const d = await r.json();
+                    if(r.ok) {
+                        showToast('任务已开始运行');
+                    } else {
+                        showToast(d.detail || '运行失败', 'error');
+                    }
+                })
+                .catch(e => showToast('网络错误', 'error'));
         }
+
         function toggleTask(taskId, enabled) {
             fetch('/api/v1/tasks/' + taskId, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ enabled: enabled })
-            }).then(() => location.reload());
+            })
+            .then(r => {
+                if(r.ok) {
+                    showToast(enabled ? '任务已启用' : '任务已禁用');
+                    setTimeout(() => location.reload(), 500);
+                } else {
+                    showToast('操作失败', 'error');
+                }
+            });
         }
     </script>
 </body>

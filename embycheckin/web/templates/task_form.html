@@ -1,427 +1,333 @@
 {% extends "base.html" %}
 
+{% block header_title %}{{ '编辑任务' if task else '新建任务' }}{% endblock %}
+
 {% block title %}{{ '编辑任务' if task else '新建任务' }} - EmbyCheckin{% endblock %}
 
 {% block content %}
-<div class="px-4 py-6 sm:px-0">
-    <div class="md:grid md:grid-cols-3 md:gap-6">
-        <div class="md:col-span-1">
-            <h3 class="text-lg font-medium leading-6 text-gray-900">{{ '编辑任务' if task else '新建任务' }}</h3>
-            <p class="mt-1 text-sm text-gray-600">配置定时任务的基本信息和执行参数。</p>
+<div class="max-w-4xl mx-auto" x-data="taskForm()">
+    
+    <div class="mb-6 flex items-center justify-between">
+        <div>
+            <h3 class="text-xl font-bold text-gray-800">{{ '编辑任务' if task else '新建任务' }}</h3>
+            <p class="text-sm text-gray-500">配置定时任务的基本信息和执行参数</p>
         </div>
-        <div class="mt-5 md:mt-0 md:col-span-2">
-            <form id="taskForm">
-                <div class="shadow sm:rounded-md sm:overflow-hidden">
-                    <div class="px-4 py-5 bg-white space-y-6 sm:p-6">
-                        <!-- 基础配置 -->
-                        <div class="border-b pb-4">
-                            <h4 class="text-md font-medium text-gray-800 mb-4">基础配置</h4>
-                            <div class="grid grid-cols-6 gap-4">
-                                <div class="col-span-6 sm:col-span-3">
-                                    <label class="block text-sm font-medium text-gray-700">任务名称</label>
-                                    <input type="text" name="name" value="{{ task.name if task else '' }}" required
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                </div>
+        <a href="/" class="text-gray-500 hover:text-gray-700 font-medium text-sm flex items-center">
+            <i class="ri-close-circle-line text-lg mr-1"></i>取消
+        </a>
+    </div>
 
-                                <div class="col-span-6 sm:col-span-3">
-                                    <label class="block text-sm font-medium text-gray-700">任务类型</label>
-                                    <select name="type" id="taskType" onchange="toggleTaskConfig()" required {% if task %}disabled{% endif %}
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                        {% for t in task_types %}
-                                        <option value="{{ t }}" {% if task and task.type == t %}selected{% endif %}>{{ t }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
+    <form @submit.prevent="submitForm" class="space-y-6">
+        
+        <!-- 基础配置 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-50 bg-gray-50/50">
+                <h4 class="text-base font-semibold text-gray-800 flex items-center">
+                    <i class="ri-settings-3-line mr-2 text-indigo-500"></i>基础配置
+                </h4>
+            </div>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="col-span-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">任务名称</label>
+                    <input type="text" x-model="form.name" required
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5"
+                        placeholder="例如：Emby 每日签到">
+                </div>
 
-                                <div class="col-span-6 sm:col-span-3">
-                                    <label class="block text-sm font-medium text-gray-700">关联账号</label>
-                                    <select name="account_id" required
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                        {% for acc in accounts %}
-                                        <option value="{{ acc.id }}" {% if task and task.account_id == acc.id %}selected{% endif %}>{{ acc.name }} ({{ acc.session_name }})</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
+                <div class="col-span-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">任务类型</label>
+                    <select x-model="form.type" required :disabled="isEdit"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
+                        {% for t in task_types %}
+                        <option value="{{ t }}">{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-                                <div class="col-span-6 sm:col-span-3">
-                                    <label class="block text-sm font-medium text-gray-700">目标机器人</label>
-                                    <input type="text" name="target" value="{{ task.target if task else '' }}" required
-                                        placeholder="机器人用户名，如 EmbyPublicBot"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                </div>
-                            </div>
+                <div class="col-span-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">关联账号</label>
+                    <select x-model="form.account_id" required
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
+                        <option value="">-- 选择账号 --</option>
+                        {% for acc in accounts %}
+                        <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.session_name }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-span-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">目标对象 (Bot/Chat)</label>
+                    <div class="relative rounded-md shadow-sm">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span class="text-gray-500 sm:text-sm">@</span>
                         </div>
-
-                        <!-- 调度配置 -->
-                        <div class="border-b pb-4">
-                            <h4 class="text-md font-medium text-gray-800 mb-4">调度配置</h4>
-                            <div class="grid grid-cols-6 gap-4">
-                                <div class="col-span-6 sm:col-span-3">
-                                    <label class="block text-sm font-medium text-gray-700">Cron 表达式</label>
-                                    <input type="text" name="schedule_cron" id="schedule_cron" value="{{ task.schedule_cron if task else '0 9 * * *' }}" required
-                                        placeholder="分 时 日 月 周"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                    <p class="mt-1 text-xs text-gray-500">格式: 分 时 日 月 周 (例: 0 9 * * * 表示每天9点)</p>
-                                </div>
-
-                                <div class="col-span-6 sm:col-span-3">
-                                    <label class="block text-sm font-medium text-gray-700">快捷选择</label>
-                                    <select id="cronPreset" onchange="applyCronPreset()"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                        <option value="">-- 自定义 --</option>
-                                        <option value="0 8 * * *">每天 8:00</option>
-                                        <option value="0 9 * * *">每天 9:00</option>
-                                        <option value="0 10 * * *">每天 10:00</option>
-                                        <option value="0 12 * * *">每天 12:00</option>
-                                        <option value="0 18 * * *">每天 18:00</option>
-                                        <option value="0 20 * * *">每天 20:00</option>
-                                        <option value="0 22 * * *">每天 22:00</option>
-                                        <option value="0 0 * * *">每天 0:00 (午夜)</option>
-                                        <option value="0 */6 * * *">每6小时</option>
-                                        <option value="0 */12 * * *">每12小时</option>
-                                        <option value="0 9 * * 1-5">工作日 9:00</option>
-                                        <option value="0 9 * * 0,6">周末 9:00</option>
-                                    </select>
-                                </div>
-
-                                <div class="col-span-6 sm:col-span-3">
-                                    <label class="block text-sm font-medium text-gray-700">时区</label>
-                                    <input type="text" name="timezone" value="{{ task.timezone if task else 'Asia/Shanghai' }}"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                </div>
-
-                                <div class="col-span-6 sm:col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700">重试次数</label>
-                                    <input type="number" name="retries" value="{{ task.retries if task else 0 }}" min="0"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                </div>
-
-                                <div class="col-span-6 sm:col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700">超时时间 (秒)</label>
-                                    <input type="number" name="max_runtime_seconds" value="{{ task.max_runtime_seconds if task else 120 }}" min="10"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                </div>
-
-                                <div class="col-span-6 sm:col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700">随机延迟 (秒)</label>
-                                    <input type="number" name="jitter_seconds" value="{{ task.jitter_seconds if task else 0 }}" min="0"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- bot_checkin 专用配置 -->
-                        <div id="botCheckinConfig" class="border-b pb-4">
-                            <h4 class="text-md font-medium text-gray-800 mb-4">签到配置</h4>
-                            <div class="grid grid-cols-6 gap-4">
-                                <div class="col-span-6 sm:col-span-3">
-                                    <label class="block text-sm font-medium text-gray-700">签到命令</label>
-                                    <input type="text" name="command" id="command" value="{{ task.params.command if task and task.params else '/checkin' }}"
-                                        placeholder="/checkin"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                </div>
-
-                                <div class="col-span-6 sm:col-span-3">
-                                    <label class="block text-sm font-medium text-gray-700">响应超时 (秒)</label>
-                                    <input type="number" name="timeout" id="timeout" value="{{ task.params.timeout if task and task.params else 60 }}" min="10"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                </div>
-
-                                <div class="col-span-6 sm:col-span-3">
-                                    <label class="block text-sm font-medium text-gray-700">发送前随机延迟 (秒)</label>
-                                    <div class="flex items-center space-x-2 mt-1">
-                                        <input type="number" name="random_delay_min" id="random_delay_min"
-                                            value="{{ task.params.random_delay_min if task and task.params else 2.0 }}" min="0" step="0.5"
-                                            class="block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                        <span class="text-gray-500">~</span>
-                                        <input type="number" name="random_delay_max" id="random_delay_max"
-                                            value="{{ task.params.random_delay_max if task and task.params else 5.0 }}" min="0" step="0.5"
-                                            class="block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                    </div>
-                                </div>
-
-                                <div class="col-span-6 sm:col-span-3">
-                                    <div class="flex items-center mt-4">
-                                        <input type="checkbox" name="use_ai" id="use_ai" {% if task and task.params and task.params.use_ai %}checked{% endif %}
-                                            class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
-                                        <label class="ml-2 block text-sm text-gray-900">使用 AI 识别验证码</label>
-                                    </div>
-                                </div>
-
-                                <div class="col-span-6">
-                                    <label class="block text-sm font-medium text-gray-700">成功关键词 (逗号分隔)</label>
-                                    <input type="text" name="success_keywords" id="success_keywords"
-                                        value="{{ ','.join(task.params.success_patterns.keywords) if task and task.params and task.params.success_patterns else '签到成功,成功签到,获得,积分,恭喜,完成签到' }}"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                </div>
-
-                                <div class="col-span-6">
-                                    <label class="block text-sm font-medium text-gray-700">已签到关键词 (逗号分隔)</label>
-                                    <input type="text" name="already_keywords" id="already_keywords"
-                                        value="{{ ','.join(task.params.already_checked_patterns.keywords) if task and task.params and task.params.already_checked_patterns else '今天已签到,已经签到,今日已签到,已签到,重复签到' }}"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                </div>
-
-                                <div class="col-span-6">
-                                    <label class="block text-sm font-medium text-gray-700">失败关键词 (逗号分隔)</label>
-                                    <input type="text" name="fail_keywords" id="fail_keywords"
-                                        value="{{ ','.join(task.params.fail_patterns.keywords) if task and task.params and task.params.fail_patterns else '失败,错误,验证码错误,回答错误,超时,过期,无效' }}"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                </div>
-
-                                <div class="col-span-6">
-                                    <label class="block text-sm font-medium text-gray-700">数据提取正则 (可选)</label>
-                                    <input type="text" name="extract_regex" id="extract_regex"
-                                        value="{{ task.params.success_patterns.extract_regex if task and task.params and task.params.success_patterns else '[+＋]?\\s*(\\d+)\\s*[积分点]' }}"
-                                        placeholder="用于提取积分等数据的正则表达式"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- button_checkin 专用配置 -->
-                        <div id="buttonCheckinConfig" class="border-b pb-4 hidden">
-                            <h4 class="text-md font-medium text-gray-800 mb-4">按钮签到配置</h4>
-                            <p class="text-sm text-gray-500 mb-4">适用于需要点击内联键盘按钮的机器人（如 MICU）</p>
-                            <div class="grid grid-cols-6 gap-4">
-                                <div class="col-span-6 sm:col-span-3">
-                                    <label class="block text-sm font-medium text-gray-700">触发命令</label>
-                                    <input type="text" name="trigger_command" id="trigger_command"
-                                        value="{{ task.params.trigger_command if task and task.params else '/start' }}"
-                                        placeholder="/start"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                    <p class="mt-1 text-xs text-gray-500">用于触发面板显示的命令</p>
-                                </div>
-
-                                <div class="col-span-6 sm:col-span-3">
-                                    <label class="block text-sm font-medium text-gray-700">按钮文本</label>
-                                    <input type="text" name="button_text" id="button_text"
-                                        value="{{ task.params.button_text if task and task.params else '签到' }}"
-                                        placeholder="签到"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                    <p class="mt-1 text-xs text-gray-500">要点击的按钮文本（支持部分匹配）</p>
-                                </div>
-
-                                <div class="col-span-6 sm:col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700">等待面板 (秒)</label>
-                                    <input type="number" name="wait_panel_seconds" id="wait_panel_seconds"
-                                        value="{{ task.params.wait_panel_seconds if task and task.params else 2 }}" min="1" step="0.5"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                </div>
-
-                                <div class="col-span-6 sm:col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700">响应超时 (秒)</label>
-                                    <input type="number" name="btn_timeout" id="btn_timeout"
-                                        value="{{ task.params.timeout if task and task.params else 30 }}" min="10"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                </div>
-
-                                <div class="col-span-6 sm:col-span-4">
-                                    <label class="block text-sm font-medium text-gray-700">点击前随机延迟 (秒)</label>
-                                    <div class="flex items-center space-x-2 mt-1">
-                                        <input type="number" name="btn_random_delay_min" id="btn_random_delay_min"
-                                            value="{{ task.params.random_delay_min if task and task.params else 1.0 }}" min="0" step="0.5"
-                                            class="block w-24 border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                        <span class="text-gray-500">~</span>
-                                        <input type="number" name="btn_random_delay_max" id="btn_random_delay_max"
-                                            value="{{ task.params.random_delay_max if task and task.params else 3.0 }}" min="0" step="0.5"
-                                            class="block w-24 border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                    </div>
-                                </div>
-
-                                <div class="col-span-6">
-                                    <label class="block text-sm font-medium text-gray-700">成功关键词 (逗号分隔)</label>
-                                    <input type="text" name="btn_success_keywords" id="btn_success_keywords"
-                                        value="{{ ','.join(task.params.success_keywords) if task and task.params and task.params.success_keywords else '签到成功,成功,获得,积分,恭喜,完成,米币' }}"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                </div>
-
-                                <div class="col-span-6">
-                                    <label class="block text-sm font-medium text-gray-700">已签到关键词 (逗号分隔)</label>
-                                    <input type="text" name="btn_already_keywords" id="btn_already_keywords"
-                                        value="{{ ','.join(task.params.already_checked_keywords) if task and task.params and task.params.already_checked_keywords else '已签到,已经签到,今天已,重复' }}"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- send_message 专用配置 -->
-                        <div id="sendMessageConfig" class="border-b pb-4 hidden">
-                            <h4 class="text-md font-medium text-gray-800 mb-4">消息配置</h4>
-                            <div class="grid grid-cols-6 gap-4">
-                                <div class="col-span-6">
-                                    <label class="block text-sm font-medium text-gray-700">发送内容</label>
-                                    <textarea name="message" id="message" rows="3"
-                                        placeholder="要发送的消息内容"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">{{ task.params.message if task and task.params else '' }}</textarea>
-                                </div>
-
-                                <div class="col-span-6 sm:col-span-3">
-                                    <div class="flex items-center mt-2">
-                                        <input type="checkbox" name="wait_for_reply" id="wait_for_reply" {% if task and task.params and task.params.wait_for_reply %}checked{% endif %}
-                                            class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
-                                        <label class="ml-2 block text-sm text-gray-900">等待机器人回复</label>
-                                    </div>
-                                    <p class="mt-1 text-xs text-gray-500">启用后将捕获机器人回复内容到日志详情</p>
-                                </div>
-
-                                <div class="col-span-6 sm:col-span-3">
-                                    <label class="block text-sm font-medium text-gray-700">等待超时 (秒)</label>
-                                    <input type="number" name="msg_timeout" id="msg_timeout"
-                                        value="{{ task.params.timeout if task and task.params else 30 }}" min="1"
-                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 启用状态 -->
-                        <div class="flex items-center">
-                            <input type="checkbox" name="enabled" {% if not task or task.enabled %}checked{% endif %}
-                                class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
-                            <label class="ml-2 block text-sm text-gray-900">启用任务</label>
-                        </div>
-                    </div>
-
-                    <div class="px-4 py-3 bg-gray-50 text-right sm:px-6">
-                        <a href="/" class="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 mr-3">
-                            取消
-                        </a>
-                        <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
-                            保存
-                        </button>
+                        <input type="text" x-model="form.target" required
+                            class="w-full pl-7 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5"
+                            placeholder="EmbyPublicBot">
                     </div>
                 </div>
-            </form>
+            </div>
         </div>
-    </div>
+
+        <!-- 调度配置 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-50 bg-gray-50/50">
+                <h4 class="text-base font-semibold text-gray-800 flex items-center">
+                    <i class="ri-time-line mr-2 text-indigo-500"></i>调度配置
+                </h4>
+            </div>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-6 gap-6">
+                <div class="col-span-1 md:col-span-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Cron 表达式</label>
+                    <input type="text" x-model="form.schedule_cron" required
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5 font-mono"
+                        placeholder="0 9 * * *">
+                    <p class="mt-1 text-xs text-gray-500">分 时 日 月 周 (例: 0 9 * * * 表示每天9点)</p>
+                </div>
+
+                <div class="col-span-1 md:col-span-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">快捷选择</label>
+                    <select @change="if($event.target.value) form.schedule_cron = $event.target.value"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
+                        <option value="">-- 选择预设 --</option>
+                        <option value="0 8 * * *">每天 8:00</option>
+                        <option value="0 9 * * *">每天 9:00</option>
+                        <option value="0 10 * * *">每天 10:00</option>
+                        <option value="0 12 * * *">每天 12:00</option>
+                        <option value="0 18 * * *">每天 18:00</option>
+                        <option value="0 22 * * *">每天 22:00</option>
+                        <option value="0 */6 * * *">每6小时</option>
+                        <option value="0 9 * * 1-5">工作日 9:00</option>
+                    </select>
+                </div>
+
+                <div class="col-span-1 md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">时区</label>
+                    <input type="text" x-model="form.timezone"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
+                </div>
+                <div class="col-span-1 md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">重试次数</label>
+                    <input type="number" x-model.number="form.retries" min="0"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
+                </div>
+                <div class="col-span-1 md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">随机延迟 (秒)</label>
+                    <input type="number" x-model.number="form.jitter_seconds" min="0"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
+                </div>
+            </div>
+        </div>
+
+        <!-- Bot Checkin Config -->
+        <div x-show="form.type === 'bot_checkin'" class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden" x-transition>
+            <div class="px-6 py-4 border-b border-gray-50 bg-gray-50/50">
+                <h4 class="text-base font-semibold text-gray-800 flex items-center">
+                    <i class="ri-robot-line mr-2 text-indigo-500"></i>机器人签到配置
+                </h4>
+            </div>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">签到命令</label>
+                    <input type="text" x-model="params.bot_checkin.command"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5"
+                        placeholder="/checkin">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">响应超时 (秒)</label>
+                    <input type="number" x-model.number="params.bot_checkin.timeout"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
+                </div>
+                
+                <div class="md:col-span-2 flex items-center p-4 bg-gray-50 rounded-lg">
+                    <input type="checkbox" x-model="params.bot_checkin.use_ai" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                    <div class="ml-3">
+                        <label class="text-sm font-medium text-gray-700">使用 AI 识别验证码</label>
+                        <p class="text-xs text-gray-500">启用后将使用配置的 AI Provider (OpenAI/Gemini/Claude) 自动识别图片验证码</p>
+                    </div>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">成功关键词</label>
+                    <input type="text" x-model="params.bot_checkin.success_keywords"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5"
+                        placeholder="签到成功,获得,积分">
+                    <p class="mt-1 text-xs text-gray-500">多个关键词用逗号分隔</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Button Checkin Config -->
+        <div x-show="form.type === 'button_checkin'" class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden" x-transition>
+            <div class="px-6 py-4 border-b border-gray-50 bg-gray-50/50">
+                <h4 class="text-base font-semibold text-gray-800 flex items-center">
+                    <i class="ri-cursor-line mr-2 text-indigo-500"></i>按钮签到配置
+                </h4>
+            </div>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">触发命令</label>
+                    <input type="text" x-model="params.button_checkin.trigger_command"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5"
+                        placeholder="/start">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">按钮文本</label>
+                    <input type="text" x-model="params.button_checkin.button_text"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5"
+                        placeholder="签到">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">成功关键词</label>
+                    <input type="text" x-model="params.button_checkin.success_keywords"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
+                </div>
+            </div>
+        </div>
+
+        <!-- Send Message Config -->
+        <div x-show="form.type === 'send_message'" class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden" x-transition>
+            <div class="px-6 py-4 border-b border-gray-50 bg-gray-50/50">
+                <h4 class="text-base font-semibold text-gray-800 flex items-center">
+                    <i class="ri-message-3-line mr-2 text-indigo-500"></i>消息发送配置
+                </h4>
+            </div>
+            <div class="p-6 space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">发送内容</label>
+                    <textarea x-model="params.send_message.message" rows="3"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2.5"
+                        placeholder="Hello World"></textarea>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" x-model="params.send_message.wait_for_reply" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                    <label class="ml-3 block text-sm font-medium text-gray-700">等待回复</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Bar -->
+        <div class="flex items-center justify-between pt-4">
+            <div class="flex items-center">
+                <input type="checkbox" x-model="form.enabled" class="h-5 w-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                <label class="ml-3 block text-sm font-medium text-gray-900">立即启用此任务</label>
+            </div>
+            <div class="flex space-x-3">
+                <a href="/" class="inline-flex justify-center py-2.5 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                    取消
+                </a>
+                <button type="submit" class="inline-flex justify-center py-2.5 px-6 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                    保存任务
+                </button>
+            </div>
+        </div>
+
+    </form>
 </div>
 
 <script>
-function applyCronPreset() {
-    const preset = document.getElementById('cronPreset').value;
-    if (preset) {
-        document.getElementById('schedule_cron').value = preset;
-    }
-}
-
-function toggleTaskConfig() {
-    const taskType = document.getElementById('taskType').value;
-    const botCheckinConfig = document.getElementById('botCheckinConfig');
-    const buttonCheckinConfig = document.getElementById('buttonCheckinConfig');
-    const sendMessageConfig = document.getElementById('sendMessageConfig');
-
-    botCheckinConfig.classList.add('hidden');
-    buttonCheckinConfig.classList.add('hidden');
-    sendMessageConfig.classList.add('hidden');
-
-    if (taskType === 'bot_checkin') {
-        botCheckinConfig.classList.remove('hidden');
-    } else if (taskType === 'button_checkin') {
-        buttonCheckinConfig.classList.remove('hidden');
-    } else if (taskType === 'send_message') {
-        sendMessageConfig.classList.remove('hidden');
-    }
-}
-
-function buildParams() {
-    const taskType = document.getElementById('taskType').value;
-
-    if (taskType === 'bot_checkin') {
-        const successKeywords = document.getElementById('success_keywords').value.split(',').map(s => s.trim()).filter(s => s);
-        const alreadyKeywords = document.getElementById('already_keywords').value.split(',').map(s => s.trim()).filter(s => s);
-        const failKeywords = document.getElementById('fail_keywords').value.split(',').map(s => s.trim()).filter(s => s);
-        const extractRegex = document.getElementById('extract_regex').value.trim();
-
-        return {
-            command: document.getElementById('command').value || '/checkin',
-            timeout: parseInt(document.getElementById('timeout').value) || 60,
-            use_ai: document.getElementById('use_ai').checked,
-            captcha_has_image: true,
-            captcha_has_buttons: true,
-            random_delay_min: parseFloat(document.getElementById('random_delay_min').value) || 2.0,
-            random_delay_max: parseFloat(document.getElementById('random_delay_max').value) || 5.0,
-            success_patterns: {
-                keywords: successKeywords,
-                extract_regex: extractRegex || null
+function taskForm() {
+    return {
+        isEdit: {{ 'true' if task else 'false' }},
+        taskId: {{ task.id if task else 'null' }},
+        form: {
+            name: "{{ task.name if task else '' }}",
+            type: "{{ task.type if task else 'bot_checkin' }}",
+            account_id: "{{ task.account_id if task else '' }}",
+            target: "{{ task.target if task else '' }}",
+            schedule_cron: "{{ task.schedule_cron if task else '0 9 * * *' }}",
+            timezone: "{{ task.timezone if task else 'Asia/Shanghai' }}",
+            retries: {{ task.retries if task else 0 }},
+            max_runtime_seconds: {{ task.max_runtime_seconds if task else 120 }},
+            jitter_seconds: {{ task.jitter_seconds if task else 0 }},
+            enabled: {{ 'true' if (not task or task.enabled) else 'false' }}
+        },
+        // Separate params for each type to avoid conflicts/overwriting when switching
+        params: {
+            bot_checkin: {
+                command: "{{ task.params.command if task and task.params else '/checkin' }}",
+                timeout: {{ task.params.timeout if task and task.params else 60 }},
+                use_ai: {{ 'true' if (task and task.params and task.params.use_ai) else 'false' }},
+                success_keywords: "{{ ','.join(task.params.success_patterns.keywords) if task and task.params and task.params.success_patterns else '签到成功,成功签到,获得,积分,恭喜,完成签到' }}"
             },
-            already_checked_patterns: {
-                keywords: alreadyKeywords
+            button_checkin: {
+                trigger_command: "{{ task.params.trigger_command if task and task.params else '/start' }}",
+                button_text: "{{ task.params.button_text if task and task.params else '签到' }}",
+                success_keywords: "{{ ','.join(task.params.success_keywords) if task and task.params and task.params.success_keywords else '签到成功,成功,获得,积分,恭喜,完成,米币' }}"
             },
-            fail_patterns: {
-                keywords: failKeywords
-            },
-            ignore_patterns: {
-                keywords: ["会话已取消", "没有活跃的会话"]
-            },
-            account_error_patterns: {
-                keywords: ["黑名单", "封禁", "禁止", "未注册", "不存在", "未绑定"]
+            send_message: {
+                message: `{{ task.params.message if task and task.params else '' }}`,
+                wait_for_reply: {{ 'true' if (task and task.params and task.params.wait_for_reply) else 'false' }}
             }
-        };
-    } else if (taskType === 'button_checkin') {
-        const successKeywords = document.getElementById('btn_success_keywords').value.split(',').map(s => s.trim()).filter(s => s);
-        const alreadyKeywords = document.getElementById('btn_already_keywords').value.split(',').map(s => s.trim()).filter(s => s);
+        },
 
-        return {
-            trigger_command: document.getElementById('trigger_command').value || '/start',
-            button_text: document.getElementById('button_text').value || '签到',
-            wait_panel_seconds: parseFloat(document.getElementById('wait_panel_seconds').value) || 2.0,
-            timeout: parseInt(document.getElementById('btn_timeout').value) || 30,
-            random_delay_min: parseFloat(document.getElementById('btn_random_delay_min').value) || 1.0,
-            random_delay_max: parseFloat(document.getElementById('btn_random_delay_max').value) || 3.0,
-            success_keywords: successKeywords,
-            already_checked_keywords: alreadyKeywords,
-            fail_keywords: ["失败", "错误", "无效"]
-        };
-    } else if (taskType === 'send_message') {
-        return {
-            message: document.getElementById('message').value,
-            wait_for_reply: document.getElementById('wait_for_reply').checked,
-            timeout: parseInt(document.getElementById('msg_timeout').value) || 30
-        };
-    }
-    return {};
-}
+        async submitForm() {
+            if (!this.form.account_id) {
+                showToast('请选择关联账号', 'error');
+                return;
+            }
 
-document.addEventListener('DOMContentLoaded', function() {
-    toggleTaskConfig();
-});
+            let finalParams = {};
+            if (this.form.type === 'bot_checkin') {
+                const p = this.params.bot_checkin;
+                finalParams = {
+                    command: p.command,
+                    timeout: p.timeout,
+                    use_ai: p.use_ai,
+                    captcha_has_image: true,
+                    captcha_has_buttons: true,
+                    success_patterns: { keywords: p.success_keywords.split(',').map(s=>s.trim()).filter(s=>s) },
+                    already_checked_patterns: { keywords: ["今天已签到", "已经签到", "今日已签到", "已签到", "重复签到"] },
+                    fail_patterns: { keywords: ["失败", "错误", "验证码错误", "回答错误", "超时", "过期", "无效"] },
+                    ignore_patterns: { keywords: ["会话已取消", "没有活跃的会话"] },
+                    account_error_patterns: { keywords: ["黑名单", "封禁", "禁止", "未注册", "不存在", "未绑定"] }
+                };
+            } else if (this.form.type === 'button_checkin') {
+                const p = this.params.button_checkin;
+                finalParams = {
+                    trigger_command: p.trigger_command,
+                    button_text: p.button_text,
+                    success_keywords: p.success_keywords.split(',').map(s=>s.trim()).filter(s=>s),
+                    already_checked_keywords: ["已签到", "已经签到", "今天已", "重复"],
+                    fail_keywords: ["失败", "错误", "无效"],
+                    timeout: 30
+                };
+            } else if (this.form.type === 'send_message') {
+                finalParams = {
+                    message: this.params.send_message.message,
+                    wait_for_reply: this.params.send_message.wait_for_reply,
+                    timeout: 30
+                };
+            }
 
-document.getElementById('taskForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const form = e.target;
-    const data = {
-        name: form.name.value,
-        type: form.type.value,
-        account_id: parseInt(form.account_id.value),
-        target: form.target.value,
-        schedule_cron: form.schedule_cron.value,
-        timezone: form.timezone.value,
-        params: buildParams(),
-        retries: parseInt(form.retries.value),
-        max_runtime_seconds: parseInt(form.max_runtime_seconds.value),
-        jitter_seconds: parseInt(form.jitter_seconds.value),
-        enabled: form.enabled.checked
-    };
+            const payload = {
+                ...this.form,
+                account_id: parseInt(this.form.account_id),
+                params: finalParams
+            };
 
-    const taskId = {{ task.id if task else 'null' }};
-    const url = taskId ? '/api/v1/tasks/' + taskId : '/api/v1/tasks';
-    const method = taskId ? 'PATCH' : 'POST';
+            const url = this.taskId ? '/api/v1/tasks/' + this.taskId : '/api/v1/tasks';
+            const method = this.taskId ? 'PATCH' : 'POST';
 
-    try {
-        const resp = await fetch(url, {
-            method: method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        if (resp.ok) {
-            window.location.href = '/';
-        } else {
-            const err = await resp.json();
-            alert('保存失败: ' + (err.detail || JSON.stringify(err)));
+            try {
+                const resp = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (resp.ok) {
+                    showToast('保存成功');
+                    setTimeout(() => window.location.href = '/', 500);
+                } else {
+                    const err = await resp.json();
+                    showToast('保存失败: ' + (err.detail || '未知错误'), 'error');
+                }
+            } catch (e) {
+                showToast('网络错误', 'error');
+            }
         }
-    } catch (e) {
-        alert('请求失败: ' + e.message);
     }
-});
+}
 </script>
 {% endblock %}
