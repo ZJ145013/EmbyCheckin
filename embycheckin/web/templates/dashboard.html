@@ -14,8 +14,8 @@
                     <p class="text-sm font-medium text-gray-500">总任务数</p>
                     <p class="text-3xl font-bold text-gray-900 mt-1">{{ tasks|length }}</p>
                 </div>
-                <div class="bg-indigo-50 p-3 rounded-lg">
-                    <i class="ri-stack-line text-indigo-600 text-xl"></i>
+                <div class="bg-indigo-50 p-4 rounded-lg">
+                    <i class="ri-stack-line text-indigo-600 text-2xl"></i>
                 </div>
             </div>
         </div>
@@ -27,8 +27,8 @@
                         {{ tasks | selectattr("enabled") | list | length }}
                     </p>
                 </div>
-                <div class="bg-green-50 p-3 rounded-lg">
-                    <i class="ri-play-circle-line text-green-600 text-xl"></i>
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <i class="ri-play-circle-line text-green-600 text-2xl"></i>
                 </div>
             </div>
         </div>
@@ -38,8 +38,8 @@
                     <p class="text-sm font-medium text-gray-500">最近执行</p>
                     <p class="text-3xl font-bold text-blue-600 mt-1">{{ recent_runs|length }}</p>
                 </div>
-                <div class="bg-blue-50 p-3 rounded-lg">
-                    <i class="ri-history-line text-blue-600 text-xl"></i>
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <i class="ri-history-line text-blue-600 text-2xl"></i>
                 </div>
             </div>
         </div>
@@ -147,7 +147,7 @@
             <!-- Card Footer -->
             <div class="px-5 py-4 bg-gray-50 border-t border-gray-100 rounded-b-xl flex justify-between items-center">
                 <button onclick="toggleTask({{ task.id }}, {{ 'false' if task.enabled else 'true' }})" 
-                    class="text-sm font-medium transition-colors focus:outline-none {{ 'text-red-600 hover:text-red-700' if task.enabled else 'text-green-600 hover:text-green-700' }}">
+                    class="px-3 py-1.5 rounded-md text-xs font-medium transition-colors focus:outline-none {{ 'bg-red-50 text-red-600 hover:bg-red-100' if task.enabled else 'bg-green-50 text-green-600 hover:bg-green-100' }}">
                     {{ '停止调度' if task.enabled else '启用调度' }}
                 </button>
                 <button onclick="runTask({{ task.id }})" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all active:scale-95">
@@ -222,4 +222,5 @@
     {% endif %}
 </div>
 {% endblock %}
+
 
