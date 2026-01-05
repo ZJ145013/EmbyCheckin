@@ -90,7 +90,10 @@
                             {{ run.error_message or (run.result.message if run.result else '') or '-' }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button @click="detailOpen = true; logId = {{ run.id }}; currentLog = {{ run.result | tojson if run.result else 'null' }}" class="text-indigo-600 hover:text-indigo-900 focus:outline-none">
+                            <button
+                                @click="detailOpen = true; logId = {{ run.id }}; currentLog = $el.dataset.result ? JSON.parse($el.dataset.result) : null"
+                                data-result="{{ run.result | tojson if run.result else '' }}"
+                                class="text-indigo-600 hover:text-indigo-900 focus:outline-none">
                                 详情
                             </button>
                         </td>
