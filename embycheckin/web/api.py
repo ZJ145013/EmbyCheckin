@@ -185,6 +185,34 @@ async def get_run(run_id: int, db: Session = Depends(get_db)):
     return run
 
 
+@router.delete("/runs/{run_id}")
+async def delete_run(run_id: int, db: Session = Depends(get_db)):
+    run = db.get(TaskRun, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+    db.delete(run)
+    db.commit()
+    return {"deleted": True}
+
+
+class DeleteRunsRequest(BaseModel):
+    ids: list[int]
+
+
+@router.post("/runs/delete-batch")
+async def delete_runs_batch(data: DeleteRunsRequest, db: Session = Depends(get_db)):
+    if not data.ids:
+        raise HTTPException(400, "No IDs provided")
+    deleted = 0
+    for run_id in data.ids:
+        run = db.get(TaskRun, run_id)
+        if run:
+            db.delete(run)
+            deleted += 1
+    db.commit()
+    return {"deleted": deleted}
+
+
 @router.get("/accounts", response_model=list[AccountResponse])
 async def list_accounts(db: Session = Depends(get_db)):
     return db.exec(select(Account)).all()
