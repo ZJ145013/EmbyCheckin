@@ -125,13 +125,13 @@ class EmbyKeepAliveTask(TaskHandler[EmbyKeepAliveConfig]):
                 logger.error(f"API key auth failed: {type(e).__name__}: {e}")
             return None, None
 
-        if not cfg.username or not cfg.password:
+        if not cfg.username:
             return None, None
 
         try:
             resp = await client.post(
                 f"{base_url}/Users/AuthenticateByName",
-                json={"Username": cfg.username, "Pw": cfg.password}
+                json={"Username": cfg.username, "Pw": cfg.password or ""}
             )
             resp.raise_for_status()
             data = resp.json()
