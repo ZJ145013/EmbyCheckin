@@ -1,10 +1,6 @@
-# EmbyCheckin - Telegram 自动签到
-# 支持两种模式：新版调度器（推荐）或旧版单任务签到
+# EmbyCheckin - Telegram 自动签到调度器
 
 services:
-  # ============================================
-  # 新版调度器（推荐）- 支持多任务、Web UI 管理
-  # ============================================
   scheduler:
     image: ghcr.io/zj145013/embycheckin:latest
     platform: linux/amd64
@@ -54,29 +50,3 @@ services:
       - "8765:8765"
     stdin_open: true
     tty: true
-
-# ============================================
-# 旧版单任务签到（如需使用，取消下面的注释）
-# ============================================
-#  terminus-checkin:
-#    image: ghcr.io/zj145013/embycheckin:latest
-#    platform: linux/amd64
-#    container_name: terminus-checkin
-#    restart: always
-#    environment:
-#      - PHONE_NUMBER=
-#      - AI_PROVIDER=gemini
-#      - GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
-#      - GEMINI_API_KEY=
-#      - GEMINI_MODEL=gemini-2.5-flash
-#      - CHECKIN_HOUR=9
-#      - CHECKIN_MINUTE=0
-#      - RUN_NOW=false
-#      - TZ=Asia/Shanghai
-#    volumes:
-#      - ./sessions:/app/sessions
-#      - ./logs:/app/logs
-#    ports:
-#      - "127.0.0.1:8765:8765"
-#    stdin_open: true
-#    tty: true
