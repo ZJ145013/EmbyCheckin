@@ -247,6 +247,13 @@
                         placeholder="与用户名密码二选一">
                     <p class="mt-1 text-xs text-gray-500">可在 Emby 控制台 → 高级 → API 密钥 中创建</p>
                 </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">代理地址</label>
+                    <input type="text" x-model="params.emby_keepalive.proxy_url"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5"
+                        placeholder="可选，如 http://127.0.0.1:7890">
+                    <p class="mt-1 text-xs text-gray-500">用于绕过 Cloudflare 等防护</p>
+                </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">模拟播放时长 (秒)</label>
                     <input type="number" x-model.number="params.emby_keepalive.play_duration" min="10"
@@ -365,6 +372,7 @@ function taskForm() {
                 username: {{ (task.params.username if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
                 password: {{ (task.params.password if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
                 api_key: {{ (task.params.api_key if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
+                proxy_url: {{ (task.params.proxy_url if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
                 play_duration: {{ task.params.play_duration if task and task.params and task.type == 'emby_keepalive' else 120 }},
                 verify_ssl: {{ 'true' if (not task or task.type != 'emby_keepalive' or not task.params or task.params.verify_ssl != false) else 'false' }}
             },
@@ -427,6 +435,7 @@ function taskForm() {
                     username: p.username || null,
                     password: p.password || null,
                     api_key: p.api_key || null,
+                    proxy_url: p.proxy_url || null,
                     play_duration: p.play_duration,
                     verify_ssl: p.verify_ssl
                 };

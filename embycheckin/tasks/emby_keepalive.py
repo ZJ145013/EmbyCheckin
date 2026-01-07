@@ -21,6 +21,7 @@ class EmbyKeepAliveConfig(BaseModel):
     username: Optional[str] = Field(default=None, description="用户名")
     password: Optional[str] = Field(default=None, description="密码")
     api_key: Optional[str] = Field(default=None, description="API Key (与用户名密码二选一)")
+    proxy_url: Optional[str] = Field(default=None, description="代理地址 (如 http://127.0.0.1:7890)")
 
     device_name: str = Field(default="EmbyCheckin", description="设备名称")
     device_id: str = Field(default_factory=lambda: f"emby-checkin-{uuid.uuid4().hex[:8]}", description="设备ID")
@@ -70,6 +71,7 @@ class EmbyKeepAliveTask(TaskHandler[EmbyKeepAliveConfig]):
                 timeout=30,
                 verify=cfg.verify_ssl,
                 follow_redirects=True,
+                proxy=cfg.proxy_url,
             ) as client:
                 user_id, access_token = await self._authenticate(client, base_url, cfg)
                 if not user_id or not access_token:
