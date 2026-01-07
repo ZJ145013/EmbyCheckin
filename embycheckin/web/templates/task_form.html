@@ -45,8 +45,12 @@
                 </div>
 
                 <div class="col-span-1">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">关联账号</label>
-                    <select x-model="form.account_id" required
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        关联账号
+                        <span x-show="form.type !== 'emby_keepalive'" class="text-red-500">*</span>
+                        <span x-show="form.type === 'emby_keepalive'" class="text-gray-400 text-xs">(可选)</span>
+                    </label>
+                    <select x-model="form.account_id" :required="form.type !== 'emby_keepalive'"
                         class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
                         <option value="">-- 选择账号 --</option>
                         {% for acc in accounts %}
@@ -56,12 +60,16 @@
                 </div>
 
                 <div class="col-span-1">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">目标对象 (Bot/Chat)</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        目标对象 (Bot/Chat)
+                        <span x-show="form.type !== 'emby_keepalive'" class="text-red-500">*</span>
+                        <span x-show="form.type === 'emby_keepalive'" class="text-gray-400 text-xs">(可选)</span>
+                    </label>
                     <div class="relative rounded-md shadow-sm">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <span class="text-gray-500 sm:text-sm">@</span>
                         </div>
-                        <input type="text" x-model="form.target" required
+                        <input type="text" x-model="form.target" :required="form.type !== 'emby_keepalive'"
                             class="w-full pl-7 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5"
                             placeholder="EmbyPublicBot">
                     </div>
@@ -371,7 +379,7 @@ function taskForm() {
         },
 
         async submitForm() {
-            if (!this.form.account_id) {
+            if (this.form.type !== 'emby_keepalive' && !this.form.account_id) {
                 showToast('请选择关联账号', 'error');
                 return;
             }
@@ -431,7 +439,8 @@ function taskForm() {
 
             const payload = {
                 ...this.form,
-                account_id: parseInt(this.form.account_id),
+                account_id: this.form.account_id ? parseInt(this.form.account_id) : null,
+                target: this.form.target || null,
                 params: finalParams
             };
 

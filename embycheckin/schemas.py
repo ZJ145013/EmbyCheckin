@@ -3,15 +3,15 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class TaskCreate(BaseModel):
     name: str = Field(min_length=1)
     type: str = Field(min_length=1)
     enabled: bool = True
-    account_id: int
-    target: str = Field(min_length=1)
+    account_id: Optional[int] = None
+    target: Optional[str] = None
     schedule_cron: str = Field(min_length=1)
     timezone: str = "Asia/Shanghai"
     jitter_seconds: int = 0
@@ -19,6 +19,15 @@ class TaskCreate(BaseModel):
     retries: int = 0
     retry_backoff_seconds: int = 30
     params: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_required_fields(self):
+        if self.type != "emby_keepalive":
+            if self.account_id is None:
+                raise ValueError("account_id is required for this task type")
+            if not self.target:
+                raise ValueError("target is required for this task type")
+        return self
 
 
 class TaskUpdate(BaseModel):
@@ -42,8 +51,8 @@ class TaskResponse(BaseModel):
     name: str
     type: str
     enabled: bool
-    account_id: int
-    target: str
+    account_id: Optional[int]
+    target: Optional[str]
     schedule_cron: str
     timezone: str
     jitter_seconds: int

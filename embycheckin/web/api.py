@@ -75,9 +75,10 @@ async def create_task(data: TaskCreate, db: Session = Depends(get_db)):
     except (KeyError, ValidationError) as e:
         raise HTTPException(400, str(e))
 
-    account = db.get(Account, data.account_id)
-    if not account:
-        raise HTTPException(400, f"Account {data.account_id} not found")
+    if data.account_id is not None:
+        account = db.get(Account, data.account_id)
+        if not account:
+            raise HTTPException(400, f"Account {data.account_id} not found")
 
     task = Task(**data.model_dump())
     db.add(task)

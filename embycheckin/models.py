@@ -26,10 +26,10 @@ class Task(SQLModel, table=True):
     type: str = Field(index=True)
     enabled: bool = Field(default=True, index=True)
 
-    account_id: int = Field(foreign_key="account.id", index=True)
+    account_id: Optional[int] = Field(default=None, foreign_key="account.id", index=True)
     account: Optional["Account"] = Relationship(back_populates="tasks")
 
-    target: str = Field(index=True)
+    target: Optional[str] = Field(default=None, index=True)
     schedule_cron: str = Field(index=True)
     timezone: str = Field(default="Asia/Shanghai")
 
