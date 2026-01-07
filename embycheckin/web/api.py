@@ -70,23 +70,36 @@ async def list_tasks(
 
 @router.post("/tasks", response_model=TaskResponse)
 async def create_task(data: TaskCreate, db: Session = Depends(get_db)):
+    logger.info(f"Creating task: type={data.type}, account_id={data.account_id}, params={data.params}")
     try:
         validate_task_params(data.type, data.params)
     except (KeyError, ValidationError) as e:
+        logger.error(f"Task params validation failed: {e}")
         raise HTTPException(400, str(e))
+    except Exception as e:
+        logger.exception(f"Unexpected error validating params: {e}")
+        raise HTTPException(500, f"Validation error: {e}")
 
     if data.account_id is not None:
         account = db.get(Account, data.account_id)
         if not account:
             raise HTTPException(400, f"Account {data.account_id} not found")
 
-    task = Task(**data.model_dump())
-    db.add(task)
-    db.commit()
-    db.refresh(task)
+    try:
+        task = Task(**data.model_dump())
+        db.add(task)
+        db.commit()
+        db.refresh(task)
+        logger.info(f"Task created: id={task.id}, name={task.name}")
+    except Exception as e:
+        logger.exception(f"Failed to create task in database: {e}")
+        raise HTTPException(500, f"Database error: {e}")
 
     if _scheduler:
-        _scheduler.add_task(task)
+        try:
+            _scheduler.add_task(task)
+        except Exception as e:
+            logger.exception(f"Failed to add task to scheduler: {e}")
 
     return task
 
