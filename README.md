@@ -15,7 +15,7 @@
 - **多任务管理**：支持同时管理多个签到任务
 - **多账号支持**：管理多个 Telegram 账号
 - **Web UI 管理界面**：可视化任务配置与监控
-- **灵活的任务类型**：支持 `bot_checkin`（机器人签到）和 `send_message`（消息发送）
+- **灵活的任务类型**：支持 `bot_checkin`（机器人签到）、`send_message`（消息发送）、`emby_keepalive`（Emby 保活）、`exam_assistant`（考核辅助）
 - **Cron 表达式调度**：灵活配置执行时间
 - **执行日志**：完整的任务执行历史记录
 
@@ -291,6 +291,8 @@ AI 配置支持 OpenAI / Gemini / Claude。
 |------|------|
 | `bot_checkin` | 机器人签到（支持 AI 验证码识别） |
 | `send_message` | 简单消息发送（保活用） |
+| `emby_keepalive` | Emby 保活（模拟播放视频保持账号活跃） |
+| `exam_assistant` | 考核辅助（监控群消息用 AI 自动回答问题） |
 
 详细任务配置示例请参考 [docs/task-config-examples.md](docs/task-config-examples.md)。
 
