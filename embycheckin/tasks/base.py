@@ -3,7 +3,7 @@ from __future__ import annotations
 import abc
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, ClassVar, Generic, TypeVar
+from typing import Any, ClassVar, Generic, Optional, TypeVar
 
 from pydantic import BaseModel
 
@@ -17,8 +17,8 @@ class TaskSnapshot:
     name: str
     type: str
     enabled: bool
-    account_id: int
-    target: str
+    account_id: Optional[int]
+    target: Optional[str]
     schedule_cron: str
     timezone: str
     jitter_seconds: int
@@ -38,7 +38,7 @@ class AccountSnapshot:
 @dataclass(slots=True)
 class TaskContext:
     task: TaskSnapshot
-    account: AccountSnapshot
+    account: Optional[AccountSnapshot]
     now: datetime
     settings: Any
     resources: dict[str, Any] = field(default_factory=dict)

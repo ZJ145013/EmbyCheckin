@@ -76,7 +76,8 @@ class TaskRunner:
             await self._db(lambda s: self._mark_run_skipped(s, run_id, "Task is disabled"))
             return run_id
 
-        lock = self._lock_for_account(task_snap.account_id)
+        lock_key = task_snap.account_id if task_snap.account_id is not None else -task_snap.id
+        lock = self._lock_for_account(lock_key)
         async with lock:
             # 首次执行前应用 jitter 延迟（手动触发时跳过）
             if task_snap.jitter_seconds > 0 and triggered_by != "manual":
@@ -149,19 +150,27 @@ class TaskRunner:
         session.flush()
         return int(run.id)
 
-    def _load_snapshots(self, session: Session, task_id: int) -> Optional[tuple[TaskSnapshot, AccountSnapshot]]:
+    def _load_snapshots(self, session: Session, task_id: int) -> Optional[tuple[TaskSnapshot, Optional[AccountSnapshot]]]:
         task = session.exec(select(Task).where(Task.id == task_id)).one_or_none()
         if task is None:
             return None
 
-        account = session.exec(select(Account).where(Account.id == task.account_id)).one()
+        account_snap: Optional[AccountSnapshot] = None
+        if task.account_id is not None:
+            account = session.exec(select(Account).where(Account.id == task.account_id)).one_or_none()
+            if account:
+                account_snap = AccountSnapshot(
+                    id=int(account.id),
+                    name=account.name,
+                    session_name=account.session_name,
+                )
 
         task_snap = TaskSnapshot(
             id=int(task.id),
             name=task.name,
             type=task.type,
             enabled=bool(task.enabled),
-            account_id=int(task.account_id),
+            account_id=task.account_id,
             target=task.target,
             schedule_cron=task.schedule_cron,
             timezone=task.timezone,
@@ -170,11 +179,6 @@ class TaskRunner:
             retries=int(task.retries),
             retry_backoff_seconds=int(task.retry_backoff_seconds),
             params=dict(task.params or {}),
-        )
-        account_snap = AccountSnapshot(
-            id=int(account.id),
-            name=account.name,
-            session_name=account.session_name,
         )
         return task_snap, account_snap
 
