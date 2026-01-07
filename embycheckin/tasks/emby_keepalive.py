@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import random
 import uuid
 from typing import Optional
@@ -10,6 +11,7 @@ from pydantic import BaseModel, Field
 from loguru import logger
 
 from .base import TaskHandler, TaskContext, TaskResult, register_task_handler
+from ..proxy import LocalProxyRunner
 
 
 def _sanitize_header_value(value: str) -> str:
@@ -66,35 +68,41 @@ class EmbyKeepAliveTask(TaskHandler[EmbyKeepAliveConfig]):
         }
 
         try:
-            async with httpx.AsyncClient(
-                headers=headers,
-                timeout=30,
-                verify=cfg.verify_ssl,
-                follow_redirects=True,
-                proxy=cfg.proxy_url,
-            ) as client:
-                user_id, access_token = await self._authenticate(client, base_url, cfg)
-                if not user_id or not access_token:
-                    return TaskResult(success=False, message="Authentication failed")
+            proxy_runner = LocalProxyRunner(cfg.proxy_url) if cfg.proxy_url else None
+            async with contextlib.AsyncExitStack() as stack:
+                effective_proxy = None
+                if proxy_runner:
+                    effective_proxy = await stack.enter_async_context(proxy_runner)
 
-                client.headers["X-Emby-Token"] = access_token
+                async with httpx.AsyncClient(
+                    headers=headers,
+                    timeout=30,
+                    verify=cfg.verify_ssl,
+                    follow_redirects=True,
+                    proxy=effective_proxy,
+                ) as client:
+                    user_id, access_token = await self._authenticate(client, base_url, cfg)
+                    if not user_id or not access_token:
+                        return TaskResult(success=False, message="Authentication failed")
 
-                item_id = await self._get_playable_item(client, base_url, user_id, cfg)
-                if not item_id:
-                    await self._report_capabilities(client, base_url, headers)
+                    client.headers["X-Emby-Token"] = access_token
+
+                    item_id = await self._get_playable_item(client, base_url, user_id, cfg)
+                    if not item_id:
+                        await self._report_capabilities(client, base_url, headers)
+                        return TaskResult(
+                            success=True,
+                            message="No playable items found, session kept alive via capabilities report",
+                            data={"user_id": user_id}
+                        )
+
+                    await self._simulate_playback(client, base_url, headers, user_id, item_id, cfg, ctx)
+
                     return TaskResult(
                         success=True,
-                        message="No playable items found, session kept alive via capabilities report",
-                        data={"user_id": user_id}
+                        message=f"Keep-alive successful: played {cfg.play_duration}s",
+                        data={"user_id": user_id, "item_id": item_id}
                     )
-
-                await self._simulate_playback(client, base_url, headers, user_id, item_id, cfg, ctx)
-
-                return TaskResult(
-                    success=True,
-                    message=f"Keep-alive successful: played {cfg.play_duration}s",
-                    data={"user_id": user_id, "item_id": item_id}
-                )
 
         except Exception as e:
             logger.error(f"[{ctx.task.name}] Error: {e}")
