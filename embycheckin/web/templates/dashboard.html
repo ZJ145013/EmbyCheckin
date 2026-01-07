@@ -8,18 +8,18 @@
 <div class="space-y-6">
     <!-- Stats Overview -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-all duration-300 group">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm font-medium text-gray-500">总任务数</p>
                     <p class="text-3xl font-bold text-gray-900 mt-1">{{ tasks|length }}</p>
                 </div>
-                <div class="bg-indigo-50 p-4 rounded-lg">
+                <div class="bg-indigo-50 p-4 rounded-lg group-hover:bg-indigo-100 transition-colors">
                     <i class="ri-stack-line text-indigo-600 text-2xl"></i>
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-all duration-300 group">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm font-medium text-gray-500">运行中任务</p>
@@ -27,18 +27,18 @@
                         {{ tasks | selectattr("enabled") | list | length }}
                     </p>
                 </div>
-                <div class="bg-green-50 p-4 rounded-lg">
+                <div class="bg-green-50 p-4 rounded-lg group-hover:bg-green-100 transition-colors">
                     <i class="ri-play-circle-line text-green-600 text-2xl"></i>
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-all duration-300 group">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm font-medium text-gray-500">最近执行</p>
                     <p class="text-3xl font-bold text-blue-600 mt-1">{{ recent_runs|length }}</p>
                 </div>
-                <div class="bg-blue-50 p-4 rounded-lg">
+                <div class="bg-blue-50 p-4 rounded-lg group-hover:bg-blue-100 transition-colors">
                     <i class="ri-history-line text-blue-600 text-2xl"></i>
                 </div>
             </div>
@@ -71,11 +71,15 @@
             <!-- Card Header -->
             <div class="p-5 border-b border-gray-50 flex items-start justify-between">
                 <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-lg flex items-center justify-center {% if task.type == 'bot_checkin' %}bg-purple-50 text-purple-600{% elif task.type == 'send_message' %}bg-blue-50 text-blue-600{% else %}bg-orange-50 text-orange-600{% endif %}">
+                    <div class="w-10 h-10 rounded-lg flex items-center justify-center {% if task.type == 'bot_checkin' %}bg-purple-50 text-purple-600{% elif task.type == 'send_message' %}bg-blue-50 text-blue-600{% elif task.type == 'emby_keepalive' %}bg-emerald-50 text-emerald-600{% elif task.type == 'exam_assistant' %}bg-cyan-50 text-cyan-600{% else %}bg-orange-50 text-orange-600{% endif %}">
                         {% if task.type == 'bot_checkin' %}
                         <i class="ri-robot-line text-xl"></i>
                         {% elif task.type == 'send_message' %}
                         <i class="ri-message-3-line text-xl"></i>
+                        {% elif task.type == 'emby_keepalive' %}
+                        <i class="ri-heart-pulse-line text-xl"></i>
+                        {% elif task.type == 'exam_assistant' %}
+                        <i class="ri-graduation-cap-line text-xl"></i>
                         {% else %}
                         <i class="ri-cursor-line text-xl"></i>
                         {% endif %}
@@ -116,12 +120,16 @@
             <div class="p-5 flex-1 space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <p class="text-xs text-gray-400 uppercase tracking-wider font-medium">目标对象</p>
-                        <p class="text-sm font-medium text-gray-700 mt-1 truncate" title="{{ task.target }}">@{{ task.target }}</p>
+                        <p class="text-xs text-gray-400 uppercase tracking-wider font-medium flex items-center gap-1"><i class="ri-user-follow-line"></i> 目标</p>
+                        <div class="mt-1">
+                            <span class="bg-gray-50 text-gray-700 text-xs px-2 py-0.5 rounded-full font-medium truncate block w-fit max-w-full" title="{{ task.target }}">
+                                @{{ task.target }}
+                            </span>
+                        </div>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-400 uppercase tracking-wider font-medium">Cron 表达式</p>
-                        <p class="text-sm font-mono text-gray-600 mt-1 bg-gray-100 inline-block px-1.5 py-0.5 rounded">{{ task.schedule_cron }}</p>
+                        <p class="text-xs text-gray-400 uppercase tracking-wider font-medium flex items-center gap-1"><i class="ri-time-line"></i> Cron</p>
+                        <p class="text-xs font-mono text-indigo-600 mt-1 bg-indigo-50 border border-indigo-100 inline-block px-2 py-0.5 rounded-md">{{ task.schedule_cron }}</p>
                     </div>
                 </div>
                 

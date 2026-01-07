@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import base64
-import json
 from typing import Any, Optional
 
 import httpx
@@ -20,19 +19,35 @@ async def analyze_captcha(
 只需要回复选项内容，不要解释。"""
 
     if provider == "gemini":
-        return await _analyze_with_gemini(image_bytes, prompt, settings)
+        return await _call_gemini(prompt, settings, image_bytes)
     elif provider == "openai":
-        return await _analyze_with_openai(image_bytes, prompt, settings)
+        return await _call_openai(prompt, settings, image_bytes)
     elif provider == "claude":
-        return await _analyze_with_claude(image_bytes, prompt, settings)
+        return await _call_claude(prompt, settings, image_bytes)
     else:
         return "", f"Unknown AI provider: {provider}"
 
 
-async def _analyze_with_gemini(
-    image_bytes: bytes,
+async def generate_text(
     prompt: str,
     settings: Any,
+) -> tuple[str, Optional[str]]:
+    provider = settings.ai_provider.lower()
+
+    if provider == "gemini":
+        return await _call_gemini(prompt, settings)
+    elif provider == "openai":
+        return await _call_openai(prompt, settings)
+    elif provider == "claude":
+        return await _call_claude(prompt, settings)
+    else:
+        return "", f"Unknown AI provider: {provider}"
+
+
+async def _call_gemini(
+    prompt: str,
+    settings: Any,
+    image_bytes: Optional[bytes] = None,
 ) -> tuple[str, Optional[str]]:
     if not settings.gemini_api_key:
         return "", "GEMINI_API_KEY not configured"
@@ -43,17 +58,12 @@ async def _analyze_with_gemini(
     model = settings.gemini_model
     url = f"{base_url}/models/{model}:generateContent"
 
-    image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+    parts = [{"text": prompt}]
+    if image_bytes:
+        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+        parts.append({"inline_data": {"mime_type": "image/jpeg", "data": image_b64}})
 
-    payload = {
-        "contents": [{
-            "parts": [
-                {"text": prompt},
-                {"inline_data": {"mime_type": "image/jpeg", "data": image_b64}},
-            ]
-        }]
-    }
-
+    payload = {"contents": [{"parts": parts}]}
     params = {"key": settings.gemini_api_key}
 
     try:
@@ -75,10 +85,10 @@ async def _analyze_with_gemini(
         return "", f"Gemini API error: {e}"
 
 
-async def _analyze_with_openai(
-    image_bytes: bytes,
+async def _call_openai(
     prompt: str,
     settings: Any,
+    image_bytes: Optional[bytes] = None,
 ) -> tuple[str, Optional[str]]:
     if not settings.openai_api_key:
         return "", "OPENAI_API_KEY not configured"
@@ -86,18 +96,15 @@ async def _analyze_with_openai(
     base_url = settings.openai_base_url.rstrip("/")
     url = f"{base_url}/chat/completions"
 
-    image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+    content = [{"type": "text", "text": prompt}]
+    if image_bytes:
+        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+        content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}})
 
     payload = {
         "model": settings.openai_model,
-        "messages": [{
-            "role": "user",
-            "content": [
-                {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
-            ],
-        }],
-        "max_tokens": 100,
+        "messages": [{"role": "user", "content": content}],
+        "max_tokens": 500,
     }
 
     headers = {
@@ -122,10 +129,10 @@ async def _analyze_with_openai(
         return "", f"OpenAI API error: {e}"
 
 
-async def _analyze_with_claude(
-    image_bytes: bytes,
+async def _call_claude(
     prompt: str,
     settings: Any,
+    image_bytes: Optional[bytes] = None,
 ) -> tuple[str, Optional[str]]:
     if not settings.claude_api_key:
         return "", "CLAUDE_API_KEY not configured"
@@ -133,18 +140,16 @@ async def _analyze_with_claude(
     base_url = settings.claude_base_url.rstrip("/")
     url = f"{base_url}/v1/messages"
 
-    image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+    content = []
+    if image_bytes:
+        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+        content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": image_b64}})
+    content.append({"type": "text", "text": prompt})
 
     payload = {
         "model": settings.claude_model,
         "max_tokens": settings.claude_max_tokens,
-        "messages": [{
-            "role": "user",
-            "content": [
-                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": image_b64}},
-                {"type": "text", "text": prompt},
-            ],
-        }],
+        "messages": [{"role": "user", "content": content}],
     }
 
     headers = {
