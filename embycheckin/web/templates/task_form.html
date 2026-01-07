@@ -384,6 +384,11 @@ function taskForm() {
                 return;
             }
 
+            if (this.form.type === 'emby_keepalive' && !this.params.emby_keepalive.server_url) {
+                showToast('请填写 Emby 服务器地址', 'error');
+                return;
+            }
+
             let finalParams = {};
             if (this.form.type === 'bot_checkin') {
                 const p = this.params.bot_checkin;
