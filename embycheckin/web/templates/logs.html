@@ -112,7 +112,7 @@
                         <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                             <button
                                 @click="showDetail({{ run.id }}, $el.dataset.result, '{{ run.status }}')"
-                                data-result="{{ run.result | tojson | e if run.result else '' }}"
+                                data-result="{{ run.result | tojson if run.result else '' }}"
                                 class="text-indigo-600 hover:text-indigo-900 focus:outline-none">
                                 详情
                             </button>
