@@ -111,8 +111,7 @@
                         </td>
                         <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                             <button
-                                @click="showDetail({{ run.id }}, $el.dataset.result, '{{ run.status }}')"
-                                data-result="{{ run.result | tojson if run.result else '' }}"
+                                @click="showDetail({{ run.id }}, {{ run.result | tojson if run.result else '{}' }}, '{{ run.status }}')"
                                 class="text-indigo-600 hover:text-indigo-900 focus:outline-none">
                                 详情
                             </button>
@@ -207,14 +206,14 @@ function logsPage() {
         showDetail(id, resultData, status) {
             this.logId = id;
             try {
-                const parsed = resultData ? JSON.parse(resultData) : { logs: [] };
-                this.currentLog = (typeof parsed === 'object' && parsed !== null) ? parsed : { logs: [], parse_error: 'Invalid data type' };
+                // resultData is already a parsed object from Jinja2 tojson
+                this.currentLog = resultData || { logs: [] };
                 if (!this.currentLog.logs) {
                     this.currentLog.logs = [];
                 }
             } catch (e) {
-                console.error('Failed to parse result data:', e);
-                this.currentLog = { logs: [], parse_error: 'Invalid JSON format' };
+                console.error('Failed to process result data:', e);
+                this.currentLog = { logs: [], parse_error: 'Invalid data format' };
             }
             this.detailOpen = true;
             this.streamStatus = status || '';
