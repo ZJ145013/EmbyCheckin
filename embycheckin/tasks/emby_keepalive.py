@@ -19,6 +19,18 @@ def _sanitize_header_value(value: str) -> str:
     return (value or "").replace("\r", "").replace("\n", "").replace('"', "").strip()
 
 
+def _mask_proxy_url(url: str) -> str:
+    try:
+        from urllib.parse import urlparse, urlunparse
+        parsed = urlparse(url)
+        if parsed.password:
+            masked_netloc = parsed.netloc.replace(f":{parsed.password}@", ":***@")
+            return urlunparse(parsed._replace(netloc=masked_netloc))
+        return url
+    except Exception:
+        return "***"
+
+
 def _ts() -> str:
     return datetime.now(timezone.utc).strftime("%H:%M:%S")
 
@@ -57,22 +69,26 @@ class EmbyKeepAliveTask(TaskHandler[EmbyKeepAliveConfig]):
                     resp = await client.get(test_url)
                     return resp.status_code < 400
         except Exception as e:
-            await ctx.log(f"Proxy test failed ({proxy_url[:50]}...): {type(e).__name__}")
+            masked_url = _mask_proxy_url(proxy_url)
+            await ctx.log(f"Proxy test failed ({masked_url[:60]}...): {type(e).__name__}")
             return False
 
     async def _select_working_proxy(self, cfg: EmbyKeepAliveConfig, ctx: TaskContext) -> Optional[str]:
         proxy_urls = []
         if cfg.proxy_urls:
-            proxy_urls.extend(cfg.proxy_urls)
-        elif cfg.proxy_url:
-            proxy_urls.append(cfg.proxy_url)
+            proxy_urls.extend([url.strip() for url in cfg.proxy_urls if url and url.strip()])
+        if not proxy_urls and cfg.proxy_url:
+            proxy_urls.append(cfg.proxy_url.strip())
 
         if not proxy_urls:
             return None
 
+        proxy_urls = list(dict.fromkeys(proxy_urls))
+
         await ctx.log(f"Testing {len(proxy_urls)} proxy(ies)...")
         for i, proxy_url in enumerate(proxy_urls, 1):
-            await ctx.log(f"Testing proxy {i}/{len(proxy_urls)}: {proxy_url[:60]}...")
+            masked_url = _mask_proxy_url(proxy_url)
+            await ctx.log(f"Testing proxy {i}/{len(proxy_urls)}: {masked_url[:60]}...")
             if await self._test_proxy(proxy_url, cfg.proxy_test_url, cfg.proxy_test_timeout, ctx):
                 await ctx.log(f"✓ Proxy {i} is working")
                 return proxy_url
