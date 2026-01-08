@@ -186,6 +186,17 @@ async def list_task_runs(task_id: int, limit: int = 20, db: Session = Depends(ge
     return db.exec(query).all()
 
 
+@router.get("/tasks/{task_id}/last-run", response_model=RunResponse | None)
+async def get_last_task_run(task_id: int, db: Session = Depends(get_db)):
+    run = db.exec(
+        select(TaskRun)
+        .where(TaskRun.task_id == task_id)
+        .order_by(TaskRun.finished_at.desc())
+        .limit(1)
+    ).first()
+    return run
+
+
 @router.get("/runs", response_model=list[RunResponse])
 async def list_runs(limit: int = 50, db: Session = Depends(get_db)):
     limit = min(limit, 200)

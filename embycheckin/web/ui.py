@@ -29,8 +29,64 @@ def get_next_run_time(task: Task) -> str | None:
         return None
 
 
+def cron_to_chinese(cron_expr: str) -> str:
+    """将 cron 表达式转换为中文描述"""
+    try:
+        parts = cron_expr.strip().split()
+        if len(parts) != 5:
+            return cron_expr
+
+        minute, hour, day, month, weekday = parts
+
+        if cron_expr == "0 */6 * * *":
+            return "每6小时"
+        if cron_expr == "0 */12 * * *":
+            return "每12小时"
+        if minute.startswith("*/"):
+            mins = minute[2:]
+            return f"每{mins}分钟"
+        if hour.startswith("*/"):
+            hrs = hour[2:]
+            return f"每{hrs}小时"
+
+        if weekday != "*":
+            if weekday == "1-5":
+                weekday_desc = "工作日"
+            elif weekday == "0" or weekday == "7":
+                weekday_desc = "周日"
+            elif weekday == "6":
+                weekday_desc = "周六"
+            else:
+                weekday_desc = f"周{weekday}"
+        else:
+            weekday_desc = None
+
+        if day == "*" and month == "*":
+            if weekday_desc:
+                if hour == "*":
+                    return weekday_desc
+                else:
+                    return f"{weekday_desc} {hour}:{minute.zfill(2)}"
+            else:
+                if hour == "*" and minute == "*":
+                    return "每分钟"
+                elif hour == "*":
+                    return f"每小时 {minute.zfill(2)}分"
+                else:
+                    return f"每天 {hour}:{minute.zfill(2)}"
+        else:
+            time_part = f"{hour}:{minute.zfill(2)}" if hour != "*" else "每小时"
+            date_part = f"{month}月{day}日" if month != "*" and day != "*" else (
+                f"每月{day}日" if day != "*" else f"{month}月"
+            )
+            return f"{date_part} {time_part}"
+    except Exception:
+        return cron_expr
+
+
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+templates.env.globals['cron_to_chinese'] = cron_to_chinese
 
 
 def get_db():
@@ -46,6 +102,16 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
     next_runs = {task.id: get_next_run_time(task) for task in tasks}
 
+    last_runs = {}
+    for task in tasks:
+        last_run = db.exec(
+            select(TaskRun)
+            .where(TaskRun.task_id == task.id)
+            .order_by(TaskRun.finished_at.desc())
+            .limit(1)
+        ).first()
+        last_runs[task.id] = last_run
+
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "tasks": tasks,
@@ -53,6 +119,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "recent_runs": recent_runs,
         "task_types": list_task_types(),
         "next_runs": next_runs,
+        "last_runs": last_runs,
     })
 
 

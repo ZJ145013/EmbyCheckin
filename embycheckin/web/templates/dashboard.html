@@ -70,7 +70,7 @@
     {% else %}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {% for task in tasks %}
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 flex flex-col h-full group">
+        <div x-data="{ showLogs: false, logs: [], loading: false }" class="bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 flex flex-col h-full group">
             <!-- Card Header -->
             <div class="p-6 border-b border-slate-50 flex items-start justify-between">
                 <div class="flex items-center space-x-3">
@@ -109,8 +109,11 @@
                         <a href="/tasks/{{ task.id }}/edit" class="block px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
                             <i class="ri-edit-line mr-2 align-middle text-slate-400"></i>编辑
                         </a>
-                        <a href="/tasks/{{ task.id }}/runs" class="block px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
+                        <button @click="open = false; showLogs = !showLogs; if(showLogs && logs.length === 0) { loading = true; fetch('/api/v1/tasks/{{ task.id }}/last-run').then(r => r.json()).then(d => { logs = d?.result?.logs || ['无日志记录']; loading = false; }).catch(() => { logs = ['加载失败']; loading = false; }); }" class="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
                             <i class="ri-file-list-line mr-2 align-middle text-slate-400"></i>日志
+                        </button>
+                        <a href="/tasks/{{ task.id }}/runs" class="block px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
+                            <i class="ri-history-line mr-2 align-middle text-slate-400"></i>历史记录
                         </a>
                         <button onclick="confirmDelete('/api/v1/tasks/{{ task.id }}')" class="w-full text-left px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50">
                             <i class="ri-delete-bin-line mr-2 align-middle"></i>删除
@@ -126,17 +129,39 @@
                         <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold flex items-center gap-1.5 mb-2"><i class="ri-user-follow-line"></i> 目标</p>
                         <div>
                             <span class="bg-slate-100 text-slate-600 text-xs px-2.5 py-1 rounded-md font-medium truncate inline-block max-w-full" title="{{ task.target }}">
-                                @{{ task.target }}
+                                @{{ task.target if task.target else 'None' }}
                             </span>
                         </div>
                     </div>
                     <div>
                         <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold flex items-center gap-1.5 mb-2"><i class="ri-time-line"></i> 频率</p>
-                        <p class="text-xs font-mono text-indigo-600 bg-indigo-50 border border-indigo-100 inline-block px-2.5 py-1 rounded-md font-semibold">{{ task.schedule_cron }}</p>
+                        <p class="text-xs text-slate-700 bg-indigo-50 border border-indigo-100 inline-block px-2.5 py-1 rounded-md font-semibold">{{ cron_to_chinese(task.schedule_cron) }}</p>
                     </div>
                 </div>
 
-                {% if task.enabled and next_runs.get(task.id) %}
+                {% set last_run = last_runs.get(task.id) %}
+                {% if last_run %}
+                <div class="bg-slate-50 rounded-xl p-3.5 flex items-center justify-between border border-slate-100">
+                    <div class="flex items-center space-x-3">
+                        <div class="{% if last_run.status == 'success' %}bg-emerald-100 text-emerald-600{% elif last_run.status == 'failed' %}bg-rose-100 text-rose-600{% else %}bg-slate-100 text-slate-600{% endif %} p-1.5 rounded-lg">
+                            <i class="{% if last_run.status == 'success' %}ri-checkbox-circle-line{% elif last_run.status == 'failed' %}ri-close-circle-line{% else %}ri-time-line{% endif %}"></i>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">最近执行</p>
+                            <p class="text-xs text-slate-700 font-medium">
+                                {% if last_run.finished_at %}
+                                {{ last_run.finished_at.strftime('%m-%d %H:%M') }}
+                                {% else %}
+                                执行中
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    <span class="{% if last_run.status == 'success' %}bg-emerald-500/10 text-emerald-700 border-emerald-200{% elif last_run.status == 'failed' %}bg-rose-500/10 text-rose-700 border-rose-200{% else %}bg-slate-500/10 text-slate-700 border-slate-200{% endif %} text-xs px-2 py-0.5 rounded-full font-semibold border">
+                        {{ '成功' if last_run.status == 'success' else ('失败' if last_run.status == 'failed' else '运行中') }}
+                    </span>
+                </div>
+                {% elif task.enabled and next_runs.get(task.id) %}
                 <div class="bg-slate-50 rounded-xl p-3.5 flex items-center space-x-3 border border-slate-100">
                     <div class="bg-indigo-100 p-1.5 rounded-lg text-indigo-600">
                         <i class="ri-calendar-check-line"></i>
@@ -155,6 +180,28 @@
                     <i class="ri-error-warning-line mr-2"></i>调度未生效
                 </div>
                 {% endif %}
+
+                <!-- Expandable Logs Section -->
+                <div x-show="showLogs" x-transition class="border-t border-slate-100 -mx-6 -mb-5 mt-5">
+                    <div class="p-4 bg-slate-50">
+                        <div class="flex items-center justify-between mb-3">
+                            <h5 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                                <i class="ri-terminal-box-line"></i>最新日志
+                            </h5>
+                            <button @click="showLogs = false" class="text-slate-400 hover:text-slate-600 p-1 rounded hover:bg-slate-100">
+                                <i class="ri-close-line text-sm"></i>
+                            </button>
+                        </div>
+                        <div x-show="loading" class="text-center py-4">
+                            <i class="ri-loader-4-line animate-spin text-indigo-500 text-xl"></i>
+                        </div>
+                        <div x-show="!loading" class="bg-slate-900 rounded-lg p-3 max-h-48 overflow-y-auto text-xs font-mono space-y-1">
+                            <template x-for="log in logs" :key="log">
+                                <div x-text="log" class="text-slate-300"></div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Card Footer -->
