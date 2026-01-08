@@ -5,40 +5,43 @@
 {% block title %}仪表盘 - EmbyCheckin{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
+<div class="space-y-8 max-w-7xl mx-auto">
     <!-- Stats Overview -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-all duration-300 group">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white rounded-2xl shadow-sm p-6 border border-slate-100 relative overflow-hidden group">
+            <div class="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-indigo-50/50 to-transparent"></div>
             <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">总任务数</p>
-                    <p class="text-3xl font-bold text-gray-900 mt-1">{{ tasks|length }}</p>
+                <div class="relative z-10">
+                    <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">总任务数</p>
+                    <p class="text-3xl font-bold text-slate-900 mt-2">{{ tasks|length }}</p>
                 </div>
-                <div class="bg-indigo-50 p-4 rounded-lg group-hover:bg-indigo-100 transition-colors">
+                <div class="bg-indigo-50 p-3 rounded-xl group-hover:scale-110 transition-transform duration-300">
                     <i class="ri-stack-line text-indigo-600 text-2xl"></i>
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-all duration-300 group">
+        <div class="bg-white rounded-2xl shadow-sm p-6 border border-slate-100 relative overflow-hidden group">
+            <div class="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-emerald-50/50 to-transparent"></div>
             <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">运行中任务</p>
-                    <p class="text-3xl font-bold text-green-600 mt-1">
+                <div class="relative z-10">
+                    <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">运行中任务</p>
+                    <p class="text-3xl font-bold text-emerald-600 mt-2">
                         {{ tasks | selectattr("enabled") | list | length }}
                     </p>
                 </div>
-                <div class="bg-green-50 p-4 rounded-lg group-hover:bg-green-100 transition-colors">
-                    <i class="ri-play-circle-line text-green-600 text-2xl"></i>
+                <div class="bg-emerald-50 p-3 rounded-xl group-hover:scale-110 transition-transform duration-300">
+                    <i class="ri-play-circle-line text-emerald-600 text-2xl"></i>
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-all duration-300 group">
+        <div class="bg-white rounded-2xl shadow-sm p-6 border border-slate-100 relative overflow-hidden group">
+            <div class="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-blue-50/50 to-transparent"></div>
             <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">最近执行</p>
-                    <p class="text-3xl font-bold text-blue-600 mt-1">{{ recent_runs|length }}</p>
+                <div class="relative z-10">
+                    <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">最近执行</p>
+                    <p class="text-3xl font-bold text-blue-600 mt-2">{{ recent_runs|length }}</p>
                 </div>
-                <div class="bg-blue-50 p-4 rounded-lg group-hover:bg-blue-100 transition-colors">
+                <div class="bg-blue-50 p-3 rounded-xl group-hover:scale-110 transition-transform duration-300">
                     <i class="ri-history-line text-blue-600 text-2xl"></i>
                 </div>
             </div>
@@ -47,16 +50,16 @@
 
     <!-- Tasks Header -->
     <div class="flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-gray-800">任务列表</h3>
-        <a href="/tasks/new" class="inline-flex items-center px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200">
+        <h3 class="text-xl font-bold text-slate-800">任务列表</h3>
+        <a href="/tasks/new" class="inline-flex items-center px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-indigo-600 transition-all shadow-md shadow-indigo-200 hover:shadow-lg hover:-translate-y-0.5">
             <i class="ri-add-line mr-1.5"></i>新建任务
         </a>
     </div>
 
     {% if not tasks %}
-    <div class="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
-        <div class="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i class="ri-task-line text-3xl text-gray-400"></i>
+    <div class="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-slate-200">
+        <div class="bg-indigo-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <i class="ri-task-line text-4xl text-indigo-400"></i>
         </div>
         <h3 class="text-lg font-medium text-gray-900">暂无任务</h3>
         <p class="text-gray-500 mt-1 mb-6">创建一个新任务来开始自动签到</p>
