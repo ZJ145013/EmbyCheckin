@@ -191,7 +191,7 @@ async def get_last_task_run(task_id: int, db: Session = Depends(get_db)):
     run = db.exec(
         select(TaskRun)
         .where(TaskRun.task_id == task_id)
-        .order_by(TaskRun.finished_at.desc())
+        .order_by(TaskRun.created_at.desc())
         .limit(1)
     ).first()
     return run
