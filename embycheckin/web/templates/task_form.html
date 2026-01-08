@@ -282,11 +282,26 @@
                     <p class="mt-1 text-xs text-gray-500">可在 Emby 控制台 → 高级 → API 密钥 中创建</p>
                 </div>
                 <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">代理地址</label>
-                    <input type="text" x-model="params.emby_keepalive.proxy_url"
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        代理地址
+                        <span class="text-xs text-gray-500 font-normal ml-1">(每行一个,支持多个,自动选择有效代理)</span>
+                    </label>
+                    <textarea x-model="params.emby_keepalive.proxy_urls" rows="3"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2.5 font-mono text-xs"
+                        placeholder="socks5://127.0.0.1:1080&#10;ss://method:password@server:port&#10;hysteria2://password@server:port?sni=example.com"></textarea>
+                    <p class="mt-1 text-xs text-gray-500">支持 http/socks5/ss/vless/hysteria2 协议,每行一个代理地址</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">代理测试URL</label>
+                    <input type="text" x-model="params.emby_keepalive.proxy_test_url"
                         class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5"
-                        placeholder="可选，如 socks5://127.0.0.1:1080">
-                    <p class="mt-1 text-xs text-gray-500">支持 http/socks5/ss/vless/hysteria2 协议</p>
+                        placeholder="https://www.google.com">
+                    <p class="mt-1 text-xs text-gray-500">用于测试代理是否有效</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">代理测试超时 (秒)</label>
+                    <input type="number" x-model.number="params.emby_keepalive.proxy_test_timeout" min="1" max="30"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">模拟播放时长 (秒)</label>
@@ -406,7 +421,9 @@ function taskForm() {
                 username: {{ (task.params.username if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
                 password: {{ (task.params.password if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
                 api_key: {{ (task.params.api_key if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
-                proxy_url: {{ (task.params.proxy_url if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
+                proxy_urls: {{ ('\n'.join(task.params.proxy_urls) if task and task.params and task.type == 'emby_keepalive' and task.params.proxy_urls else (task.params.proxy_url if task and task.params and task.type == 'emby_keepalive' and task.params.proxy_url else '')) | tojson }},
+                proxy_test_url: {{ (task.params.proxy_test_url if task and task.params and task.type == 'emby_keepalive' else 'https://www.google.com') | tojson }},
+                proxy_test_timeout: {{ task.params.proxy_test_timeout if task and task.params and task.type == 'emby_keepalive' else 5 }},
                 play_duration: {{ task.params.play_duration if task and task.params and task.type == 'emby_keepalive' else 120 }},
                 verify_ssl: {{ 'true' if (not task or task.type != 'emby_keepalive' or not task.params or task.params.verify_ssl != false) else 'false' }}
             },
@@ -464,12 +481,15 @@ function taskForm() {
                 };
             } else if (this.form.type === 'emby_keepalive') {
                 const p = this.params.emby_keepalive;
+                const proxyUrls = p.proxy_urls ? p.proxy_urls.split('\n').map(s=>s.trim()).filter(s=>s) : null;
                 finalParams = {
                     server_url: p.server_url,
                     username: p.username || null,
                     password: p.password || null,
                     api_key: p.api_key || null,
-                    proxy_url: p.proxy_url || null,
+                    proxy_urls: proxyUrls && proxyUrls.length > 0 ? proxyUrls : null,
+                    proxy_test_url: p.proxy_test_url || 'https://www.google.com',
+                    proxy_test_timeout: p.proxy_test_timeout || 5,
                     play_duration: p.play_duration,
                     verify_ssl: p.verify_ssl
                 };

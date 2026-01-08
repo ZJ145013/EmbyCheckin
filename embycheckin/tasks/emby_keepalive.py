@@ -28,7 +28,10 @@ class EmbyKeepAliveConfig(BaseModel):
     username: Optional[str] = Field(default=None, description="用户名")
     password: Optional[str] = Field(default=None, description="密码")
     api_key: Optional[str] = Field(default=None, description="API Key (与用户名密码二选一)")
-    proxy_url: Optional[str] = Field(default=None, description="代理地址 (如 http://127.0.0.1:7890)")
+    proxy_url: Optional[str] = Field(default=None, description="代理地址 (如 http://127.0.0.1:7890, 已弃用,请使用 proxy_urls)")
+    proxy_urls: Optional[list[str]] = Field(default=None, description="代理地址列表,支持多个,自动选择有效代理")
+    proxy_test_url: str = Field(default="https://www.google.com", description="代理测试URL")
+    proxy_test_timeout: int = Field(default=5, ge=1, le=30, description="代理测试超时时间(秒)")
 
     device_name: str = Field(default="EmbyCheckin", description="设备名称")
     device_id: str = Field(default_factory=lambda: f"emby-checkin-{uuid.uuid4().hex[:8]}", description="设备ID")
@@ -45,6 +48,38 @@ class EmbyKeepAliveConfig(BaseModel):
 class EmbyKeepAliveTask(TaskHandler[EmbyKeepAliveConfig]):
     type = "emby_keepalive"
     ConfigModel = EmbyKeepAliveConfig
+
+    async def _test_proxy(self, proxy_url: str, test_url: str, timeout: int, ctx: TaskContext) -> bool:
+        try:
+            proxy_runner = LocalProxyRunner(proxy_url)
+            async with proxy_runner as effective_proxy:
+                async with httpx.AsyncClient(proxy=effective_proxy, timeout=timeout) as client:
+                    resp = await client.get(test_url)
+                    return resp.status_code < 400
+        except Exception as e:
+            await ctx.log(f"Proxy test failed ({proxy_url[:50]}...): {type(e).__name__}")
+            return False
+
+    async def _select_working_proxy(self, cfg: EmbyKeepAliveConfig, ctx: TaskContext) -> Optional[str]:
+        proxy_urls = []
+        if cfg.proxy_urls:
+            proxy_urls.extend(cfg.proxy_urls)
+        elif cfg.proxy_url:
+            proxy_urls.append(cfg.proxy_url)
+
+        if not proxy_urls:
+            return None
+
+        await ctx.log(f"Testing {len(proxy_urls)} proxy(ies)...")
+        for i, proxy_url in enumerate(proxy_urls, 1):
+            await ctx.log(f"Testing proxy {i}/{len(proxy_urls)}: {proxy_url[:60]}...")
+            if await self._test_proxy(proxy_url, cfg.proxy_test_url, cfg.proxy_test_timeout, ctx):
+                await ctx.log(f"✓ Proxy {i} is working")
+                return proxy_url
+            await ctx.log(f"✗ Proxy {i} failed")
+
+        await ctx.log("No working proxy found")
+        return None
 
     async def execute(self, ctx: TaskContext, cfg: EmbyKeepAliveConfig) -> TaskResult:
         base_url = cfg.server_url.rstrip("/")
@@ -75,11 +110,12 @@ class EmbyKeepAliveTask(TaskHandler[EmbyKeepAliveConfig]):
         }
 
         try:
-            proxy_runner = LocalProxyRunner(cfg.proxy_url) if cfg.proxy_url else None
+            selected_proxy = await self._select_working_proxy(cfg, ctx)
+            proxy_runner = LocalProxyRunner(selected_proxy) if selected_proxy else None
             async with contextlib.AsyncExitStack() as stack:
                 effective_proxy = None
                 if proxy_runner:
-                    await ctx.log("Starting proxy...")
+                    await ctx.log("Starting selected proxy...")
                     effective_proxy = await stack.enter_async_context(proxy_runner)
                     await ctx.log(f"Proxy ready: {effective_proxy}")
 
