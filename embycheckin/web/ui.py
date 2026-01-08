@@ -84,9 +84,25 @@ def cron_to_chinese(cron_expr: str) -> str:
         return cron_expr
 
 
+def format_datetime(dt: datetime | None, fmt: str = "%Y-%m-%d %H:%M:%S", tz_name: str = "Asia/Shanghai") -> str:
+    """将 UTC 时间转换为本地时区并格式化"""
+    if not dt:
+        return ""
+    try:
+        if dt.tzinfo is None:
+            from datetime import timezone as dt_timezone
+            dt = dt.replace(tzinfo=dt_timezone.utc)
+        local_tz = timezone(tz_name)
+        local_dt = dt.astimezone(local_tz)
+        return local_dt.strftime(fmt)
+    except Exception:
+        return dt.strftime(fmt) if dt else ""
+
+
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 templates.env.globals['cron_to_chinese'] = cron_to_chinese
+templates.env.filters['format_datetime'] = format_datetime
 
 
 def get_db():

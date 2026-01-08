@@ -53,6 +53,7 @@
                         <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">任务ID</th>
                         <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">触发方式</th>
                         <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">开始时间</th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">完成时间</th>
                         <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">耗时</th>
                         <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">消息</th>
                         <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">操作</th>
@@ -100,7 +101,10 @@
                             {{ run.triggered_by }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                            {{ run.started_at.strftime('%Y-%m-%d %H:%M:%S') if run.started_at else '-' }}
+                            {{ run.started_at | format_datetime('%Y-%m-%d %H:%M:%S') if run.started_at else '-' }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                            {{ run.finished_at | format_datetime('%Y-%m-%d %H:%M:%S') if run.finished_at else '-' }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-600">
                             {% if run.duration_ms %}{{ (run.duration_ms / 1000) | round(1) }}s{% else %}-{% endif %}
