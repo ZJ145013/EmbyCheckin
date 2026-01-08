@@ -124,6 +124,12 @@
                     <input type="number" x-model.number="form.jitter_seconds" min="0"
                         class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
                 </div>
+                <div class="col-span-1 md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">最大运行时间 (秒)</label>
+                    <input type="number" x-model.number="form.max_runtime_seconds" min="1"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
+                    <p class="mt-1 text-xs text-gray-500">任务执行超过此时间将被强制终止。Emby 保活任务推荐设置为 播放时长+60 秒</p>
+                </div>
             </div>
         </div>
 
