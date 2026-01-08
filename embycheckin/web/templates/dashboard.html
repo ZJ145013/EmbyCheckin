@@ -109,7 +109,7 @@
                         <a href="/tasks/{{ task.id }}/edit" class="block px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
                             <i class="ri-edit-line mr-2 align-middle text-slate-400"></i>编辑
                         </a>
-                        <button @click="open = false; streamDone = false; fullResult = null; fetch('/api/v1/tasks/{{ task.id }}/last-run').then(r => r.json()).then(d => { if(d && d.id) { currentTaskId = {{ task.id }}; currentRunId = d.id; showLogsModal = true; logs = []; loading = true; if(eventSource) { eventSource.close(); } eventSource = new EventSource('/api/v1/runs/' + d.id + '/events'); eventSource.onmessage = (e) => { const msg = JSON.parse(e.data); if(msg.type === 'log') { logs.push(msg.message); loading = false; setTimeout(() => { const container = $refs.logContainer; if(container) container.scrollTop = container.scrollHeight; }, 10); } else if(msg.type === 'done') { eventSource.close(); eventSource = null; loading = false; streamDone = true; if(logs.length === 0) { fetch('/api/v1/runs/' + d.id).then(r => r.json()).then(runData => { fullResult = runData.result; }); } } else if(msg.type === 'error') { logs.push('错误: ' + msg.message); eventSource.close(); eventSource = null; loading = false; streamDone = true; } }; eventSource.onerror = () => { logs.push('连接错误'); eventSource.close(); eventSource = null; loading = false; streamDone = true; }; } else { showToast('暂无执行记录', 'error'); } });" class="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
+                        <button @click="open = false; streamDone = false; fullResult = null; fetch('/api/v1/tasks/{{ task.id }}/last-run').then(r => r.json()).then(d => { if(d && d.id) { currentTaskId = {{ task.id }}; currentRunId = d.id; showLogsModal = true; logs = []; loading = true; if(eventSource) { eventSource.close(); } eventSource = new EventSource('/api/v1/runs/' + d.id + '/events'); eventSource.onmessage = (e) => { const msg = JSON.parse(e.data); if(msg.type === 'log') { logs.push(msg.message); loading = false; setTimeout(() => { const container = $refs.logContainer; if(container) container.scrollTop = container.scrollHeight; }, 10); } else if(msg.type === 'done') { eventSource.close(); eventSource = null; loading = false; streamDone = true; fetch('/api/v1/runs/' + d.id).then(r => r.json()).then(runData => { fullResult = runData.result; }); } else if(msg.type === 'error') { logs.push('错误: ' + msg.message); eventSource.close(); eventSource = null; loading = false; streamDone = true; } }; eventSource.onerror = () => { logs.push('连接错误'); eventSource.close(); eventSource = null; loading = false; streamDone = true; }; } else { showToast('暂无执行记录', 'error'); } });" class="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
                             <i class="ri-file-list-line mr-2 align-middle text-slate-400"></i>日志
                         </button>
                         <a href="/tasks/{{ task.id }}/runs" class="block px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
@@ -259,22 +259,30 @@
                             <p class="text-sm text-slate-500">连接日志流...</p>
                         </div>
                     </div>
-                    <div x-show="logs.length > 0" class="h-full">
-                        <div class="bg-slate-900 rounded-xl p-4 h-full overflow-y-auto text-sm font-mono" x-ref="logContainer">
-                            <template x-for="(log, index) in logs" :key="index">
-                                <div x-text="log" class="text-slate-300 mb-1"></div>
-                            </template>
+                    <div x-show="logs.length > 0 || (streamDone && fullResult)" class="h-full overflow-y-auto space-y-4">
+                        <!-- 运行日志部分 -->
+                        <div x-show="logs.length > 0">
+                            <div class="flex items-center mb-3">
+                                <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center mr-2">
+                                    <i class="ri-terminal-box-line text-white text-sm"></i>
+                                </div>
+                                <h4 class="text-sm font-semibold text-slate-700">运行日志</h4>
+                            </div>
+                            <div class="bg-slate-900 rounded-xl p-4 overflow-y-auto text-sm font-mono max-h-80" x-ref="logContainer">
+                                <template x-for="(log, index) in logs" :key="index">
+                                    <div x-text="log" class="text-slate-300 mb-1"></div>
+                                </template>
+                            </div>
                         </div>
-                    </div>
-                    <div x-show="streamDone && logs.length === 0 && fullResult" class="h-full">
-                        <div class="mb-4">
+                        <!-- 其他数据部分 -->
+                        <div x-show="streamDone && fullResult && fullResult.task_result">
                             <div class="flex items-center mb-3">
                                 <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-2">
                                     <i class="ri-code-s-slash-line text-indigo-600 text-sm"></i>
                                 </div>
-                                <h4 class="text-sm font-semibold text-slate-700">执行结果</h4>
+                                <h4 class="text-sm font-semibold text-slate-700">其他数据</h4>
                             </div>
-                            <pre class="text-xs font-mono text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-xl p-4 border border-slate-200 overflow-y-auto max-h-96" x-text="JSON.stringify(fullResult, null, 2)"></pre>
+                            <pre class="text-xs font-mono text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-xl p-4 border border-slate-200 overflow-y-auto max-h-96" x-text="JSON.stringify(fullResult.task_result, null, 2)"></pre>
                         </div>
                     </div>
                 </div>
