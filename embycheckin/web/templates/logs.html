@@ -215,21 +215,24 @@ function logsPage() {
 
         showDetail(id, resultData, status) {
             this.logId = id;
-            try {
-                // resultData is already a parsed object from Jinja2 tojson
-                this.currentLog = resultData || { logs: [] };
-                if (!this.currentLog.logs) {
-                    this.currentLog.logs = [];
-                }
-            } catch (e) {
-                console.error('Failed to process result data:', e);
-                this.currentLog = { logs: [], parse_error: 'Invalid data format' };
-            }
             this.detailOpen = true;
             this.streamStatus = status || '';
 
+            // For running/queued tasks, start streaming immediately
             if (status === 'running' || status === 'queued') {
+                this.currentLog = { logs: [] };
                 this.startStreaming(id);
+            } else {
+                // For completed tasks, use the stored result
+                try {
+                    this.currentLog = resultData || { logs: [] };
+                    if (!this.currentLog.logs) {
+                        this.currentLog.logs = [];
+                    }
+                } catch (e) {
+                    console.error('Failed to process result data:', e);
+                    this.currentLog = { logs: [], parse_error: 'Invalid data format' };
+                }
             }
         },
 
