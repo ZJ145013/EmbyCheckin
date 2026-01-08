@@ -50,6 +50,9 @@ class ExamAssistantTask(TaskHandler[ExamAssistantConfig]):
         if not manager:
             return TaskResult(success=False, message="Telegram manager not available")
 
+        if not ctx.account:
+            return TaskResult(success=False, message="Account not configured for this task")
+
         processed = 0
         replied = 0
         answers = []
@@ -62,6 +65,7 @@ class ExamAssistantTask(TaskHandler[ExamAssistantConfig]):
                 except Exception as e:
                     return TaskResult(success=False, message=f"Cannot find chat {ctx.task.target}: {e}")
 
+                await ctx.log(f"Scanning messages in {ctx.task.target}")
                 now = datetime.now(timezone.utc)
                 messages = []
 
@@ -93,6 +97,7 @@ class ExamAssistantTask(TaskHandler[ExamAssistantConfig]):
                     if self._matches_keywords(text, cfg.exclude_keywords):
                         continue
 
+                    await ctx.log(f"Found question: {text[:60]}...")
                     logger.info(f"[{ctx.task.name}] Found question: {text[:80]}...")
 
                     template = cfg.ai_prompt_template or "{question}"
@@ -110,6 +115,7 @@ class ExamAssistantTask(TaskHandler[ExamAssistantConfig]):
                     if not answer:
                         continue
 
+                    await ctx.log(f"AI answered ({len(answer)} chars)")
                     logger.info(f"[{ctx.task.name}] AI answered ({len(answer)} chars)")
                     processed += 1
                     answers.append({"question": text[:100], "answer": answer[:200]})
