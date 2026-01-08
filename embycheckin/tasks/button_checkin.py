@@ -19,10 +19,10 @@ class ButtonCheckinConfig(BaseModel):
     button_text: str = Field(default="签到", description="要点击的按钮文本（支持部分匹配）")
 
     # 延迟配置
-    wait_panel_seconds: float = Field(default=2.0, description="等待面板出现的时间(秒)")
-    random_delay_min: float = Field(default=1.0, description="点击前最小随机延迟(秒)")
-    random_delay_max: float = Field(default=3.0, description="点击前最大随机延迟(秒)")
-    timeout: int = Field(default=30, description="等待响应超时时间(秒)")
+    wait_panel_seconds: float = Field(default=2.0, ge=0, description="等待面板出现的时间(秒)")
+    random_delay_min: float = Field(default=1.0, ge=0, description="点击前最小随机延迟(秒)")
+    random_delay_max: float = Field(default=3.0, ge=0, description="点击前最大随机延迟(秒)")
+    timeout: int = Field(default=30, ge=1, description="等待响应超时时间(秒)")
 
     # 结果识别
     success_keywords: list[str] = Field(
@@ -54,6 +54,12 @@ class ButtonCheckinTask(TaskHandler[ButtonCheckinConfig]):
         if not manager or not router:
             return TaskResult(success=False, message="Telegram manager or router not available")
 
+        if not ctx.account:
+            return TaskResult(success=False, message="Account not configured for this task")
+
+        if cfg.random_delay_min > cfg.random_delay_max:
+            cfg.random_delay_min, cfg.random_delay_max = cfg.random_delay_max, cfg.random_delay_min
+
         try:
             async with manager.client(ctx.account.session_name) as client:
                 router.register_handler(client, ctx.account.id)
@@ -64,26 +70,32 @@ class ButtonCheckinTask(TaskHandler[ButtonCheckinConfig]):
                 router.clear_queue(ctx.account.id, bot_id)
 
                 # 发送触发命令
+                await ctx.log(f"Sending '{cfg.trigger_command}' to {ctx.task.target}")
                 logger.info(f"[{ctx.task.name}] Sending '{cfg.trigger_command}' to {ctx.task.target}")
                 await client.send_message(ctx.task.target, cfg.trigger_command)
 
                 # 等待面板出现
+                await ctx.log("Waiting for panel...")
                 await asyncio.sleep(cfg.wait_panel_seconds)
 
                 # 等待带按钮的消息
                 panel_msg = await self._wait_for_panel(ctx, router, bot_id, cfg)
 
                 if not panel_msg:
+                    await ctx.log("Timeout waiting for panel")
                     return TaskResult(success=False, message="Timeout waiting for panel")
 
                 # 查找并点击按钮
+                await ctx.log(f"Looking for button '{cfg.button_text}'")
                 clicked, callback_text = await self._click_button(ctx, panel_msg, cfg)
 
                 if not clicked:
+                    await ctx.log(f"Button '{cfg.button_text}' not found")
                     return TaskResult(success=False, message=f"Button '{cfg.button_text}' not found")
 
                 # 如果有回调响应（弹窗），直接用它判断结果
                 if callback_text:
+                    await ctx.log(f"Got callback: {callback_text[:50]}")
                     return self._parse_result(callback_text, cfg)
 
                 # 否则等待新消息

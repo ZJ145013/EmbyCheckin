@@ -14,10 +14,10 @@ class TaskCreate(BaseModel):
     target: Optional[str] = None
     schedule_cron: str = Field(min_length=1)
     timezone: str = "Asia/Shanghai"
-    jitter_seconds: int = 0
-    max_runtime_seconds: int = 120
-    retries: int = 0
-    retry_backoff_seconds: int = 30
+    jitter_seconds: int = Field(default=0, ge=0)
+    max_runtime_seconds: int = Field(default=120, ge=1)
+    retries: int = Field(default=0, ge=0)
+    retry_backoff_seconds: int = Field(default=30, ge=0)
     params: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -27,6 +27,15 @@ class TaskCreate(BaseModel):
                 raise ValueError("account_id is required for this task type")
             if not self.target:
                 raise ValueError("target is required for this task type")
+        else:
+            play_duration = self.params.get("play_duration", 120) if self.params else 120
+            try:
+                play_duration = int(play_duration) if play_duration is not None else 120
+            except (ValueError, TypeError):
+                play_duration = 120
+            min_runtime = play_duration + 60
+            if self.max_runtime_seconds < min_runtime:
+                self.max_runtime_seconds = min_runtime
         return self
 
 
@@ -37,10 +46,10 @@ class TaskUpdate(BaseModel):
     target: Optional[str] = None
     schedule_cron: Optional[str] = None
     timezone: Optional[str] = None
-    jitter_seconds: Optional[int] = None
-    max_runtime_seconds: Optional[int] = None
-    retries: Optional[int] = None
-    retry_backoff_seconds: Optional[int] = None
+    jitter_seconds: Optional[int] = Field(default=None, ge=0)
+    max_runtime_seconds: Optional[int] = Field(default=None, ge=1)
+    retries: Optional[int] = Field(default=None, ge=0)
+    retry_backoff_seconds: Optional[int] = Field(default=None, ge=0)
     params: Optional[dict[str, Any]] = None
 
 
