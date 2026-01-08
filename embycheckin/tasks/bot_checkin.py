@@ -143,6 +143,9 @@ class BotCheckinTask(TaskHandler[BotCheckinConfig]):
         if not manager or not router:
             return TaskResult(success=False, message="Telegram manager or router not available")
 
+        if not ctx.account:
+            return TaskResult(success=False, message="Account not configured for this task")
+
         try:
             async with manager.client(ctx.account.session_name) as client:
                 router.register_handler(client, ctx.account.id)
@@ -158,6 +161,7 @@ class BotCheckinTask(TaskHandler[BotCheckinConfig]):
                     await asyncio.sleep(delay)
 
                 # 发送签到命令
+                await ctx.log(f"Sending '{cfg.command}' to {ctx.task.target}")
                 await client.send_message(ctx.task.target, cfg.command)
                 logger.info(f"[{ctx.task.name}] Sent '{cfg.command}' to {ctx.task.target}")
 
@@ -204,6 +208,7 @@ class BotCheckinTask(TaskHandler[BotCheckinConfig]):
 
             # 检查是否需要处理验证码
             if cfg.use_ai and msg.photo and (cfg.captcha_has_buttons and msg.reply_markup):
+                await ctx.log("Processing captcha...")
                 captcha_result = await self._handle_captcha(ctx, client, msg, cfg)
                 if captcha_result:
                     return captcha_result
@@ -212,11 +217,13 @@ class BotCheckinTask(TaskHandler[BotCheckinConfig]):
             # 检查已签到
             matched, _ = _match_pattern(text, cfg.already_checked_patterns)
             if matched:
+                await ctx.log("Already checked in today")
                 return TaskResult(success=True, message="Already checked in today", data={"already_checked": True, "response": text})
 
             # 检查成功
             matched, extracted = _match_pattern(text, cfg.success_patterns)
             if matched:
+                await ctx.log(f"Checkin success, extracted: {extracted or 'N/A'}")
                 return TaskResult(
                     success=True,
                     message=f"Checkin success, extracted: {extracted or 'N/A'}",
@@ -226,11 +233,13 @@ class BotCheckinTask(TaskHandler[BotCheckinConfig]):
             # 检查失败
             matched, _ = _match_pattern(text, cfg.fail_patterns)
             if matched:
+                await ctx.log(f"Checkin failed: {text[:50]}")
                 return TaskResult(success=False, message=f"Checkin failed: {text[:100]}", data={"response": text})
 
             # 检查账号问题
             matched, _ = _match_pattern(text, cfg.account_error_patterns)
             if matched:
+                await ctx.log(f"Account issue: {text[:50]}")
                 return TaskResult(success=False, message=f"Account issue: {text[:100]}", data={"response": text})
 
         return TaskResult(success=False, message="Timeout waiting for checkin result")

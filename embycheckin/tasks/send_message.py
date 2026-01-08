@@ -29,6 +29,9 @@ class SendMessageTask(TaskHandler[SendMessageConfig]):
         if cfg.wait_for_reply and not router:
             return TaskResult(success=False, message="Conversation router not available")
 
+        if not ctx.account:
+            return TaskResult(success=False, message="Account not configured for this task")
+
         try:
             async with manager.client(ctx.account.session_name) as client:
                 target_id = None
@@ -38,11 +41,13 @@ class SendMessageTask(TaskHandler[SendMessageConfig]):
                     target_id = entity.id
                     router.clear_queue(ctx.account.id, target_id)
 
+                await ctx.log(f"Sending message to {ctx.task.target}")
                 await client.send_message(ctx.task.target, cfg.message)
 
                 data = {"target": ctx.task.target, "message": cfg.message}
 
                 if cfg.wait_for_reply:
+                    await ctx.log(f"Waiting for reply (timeout: {cfg.timeout}s)")
                     try:
                         msg = await router.wait_for(
                             ctx.account.id,
@@ -51,6 +56,7 @@ class SendMessageTask(TaskHandler[SendMessageConfig]):
                             timeout=float(cfg.timeout),
                         )
                         data["response"] = msg.text or msg.caption or ""
+                        await ctx.log("Reply received")
                     except asyncio.TimeoutError:
                         return TaskResult(
                             success=False,

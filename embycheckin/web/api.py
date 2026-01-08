@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 import traceback
 from datetime import datetime, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from loguru import logger
 from pydantic import BaseModel, ValidationError
 from sqlmodel import Session, select
@@ -197,6 +199,39 @@ async def get_run(run_id: int, db: Session = Depends(get_db)):
     if not run:
         raise HTTPException(404, "Run not found")
     return run
+
+
+@router.get("/runs/{run_id}/events")
+async def stream_run_events(run_id: int):
+    async def event_generator():
+        last_log_count = 0
+        while True:
+            with get_session() as session:
+                run = session.get(TaskRun, run_id)
+                if not run:
+                    yield f"data: {json.dumps({'type': 'error', 'message': 'Run not found'})}\n\n"
+                    return
+
+                logs = []
+                if isinstance(run.result, dict) and isinstance(run.result.get("logs"), list):
+                    logs = run.result["logs"]
+
+                if len(logs) > last_log_count:
+                    for log in logs[last_log_count:]:
+                        yield f"data: {json.dumps({'type': 'log', 'message': log})}\n\n"
+                    last_log_count = len(logs)
+
+                if run.status in ("success", "failed", "skipped"):
+                    yield f"data: {json.dumps({'type': 'done', 'status': run.status})}\n\n"
+                    return
+
+            await asyncio.sleep(0.5)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.delete("/runs/{run_id}")

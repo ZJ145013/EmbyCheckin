@@ -54,6 +54,25 @@ class TaskRunner:
                     raise
         return await asyncio.to_thread(_run)
 
+    async def append_log(self, run_id: int, message: str) -> None:
+        ts = datetime.now().strftime("%H:%M:%S")
+        formatted = f"[{ts}] {message}"
+
+        def _append(session: Session) -> None:
+            run = session.get(TaskRun, run_id)
+            if not run:
+                return
+            current = dict(run.result or {})
+            logs = current.get("logs")
+            if not isinstance(logs, list):
+                logs = []
+            logs = list(logs)
+            logs.append(formatted)
+            current["logs"] = logs
+            run.result = current
+
+        await self._db(_append)
+
     async def run_task(
         self,
         *,
@@ -101,6 +120,8 @@ class TaskRunner:
                         account=account_snap,
                         now=utcnow(),
                         settings=self._settings,
+                        run_id=run_id,
+                        _log_callback=lambda m: self.append_log(run_id, m),
                         resources={**self._resources, "runner": self},
                         triggered_by=triggered_by,
                     )
@@ -144,7 +165,7 @@ class TaskRunner:
             triggered_by=triggered_by,
             scheduled_for=scheduled_for,
             created_at=utcnow(),
-            result={},
+            result={"logs": []},
         )
         session.add(run)
         session.flush()
@@ -196,22 +217,29 @@ class TaskRunner:
     def _mark_run_success(self, session: Session, run_id: int, result: TaskResult, duration_ms: int) -> None:
         run = session.get(TaskRun, run_id)
         if run:
+            existing_logs = []
+            if isinstance(run.result, dict) and isinstance(run.result.get("logs"), list):
+                existing_logs = list(run.result["logs"])
             run.status = "success"
             run.finished_at = utcnow()
             run.duration_ms = duration_ms
             run.error_message = None
-            run.result = {"task_result": asdict(result)}
+            run.result = {"logs": existing_logs, "task_result": asdict(result)}
 
     def _mark_run_failed(
         self, session: Session, run_id: int, error_message: str, duration_ms: Optional[int] = None
     ) -> None:
         run = session.get(TaskRun, run_id)
         if run:
+            existing_logs = []
+            if isinstance(run.result, dict) and isinstance(run.result.get("logs"), list):
+                existing_logs = list(run.result["logs"])
             run.status = "failed"
             run.finished_at = utcnow()
             if duration_ms is not None:
                 run.duration_ms = duration_ms
             run.error_message = (error_message or "")[:2000]
+            run.result = {"logs": existing_logs}
 
     def _mark_run_skipped(self, session: Session, run_id: int, message: str) -> None:
         run = session.get(TaskRun, run_id)

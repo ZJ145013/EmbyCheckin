@@ -47,21 +47,15 @@ class EmbyKeepAliveTask(TaskHandler[EmbyKeepAliveConfig]):
     ConfigModel = EmbyKeepAliveConfig
 
     async def execute(self, ctx: TaskContext, cfg: EmbyKeepAliveConfig) -> TaskResult:
-        logs: list[str] = []
-
-        def log(msg: str) -> None:
-            logs.append(f"[{_ts()}] {msg}")
-            logger.info(f"[{ctx.task.name}] {msg}")
-
         base_url = cfg.server_url.rstrip("/")
         try:
             parsed = httpx.URL(base_url)
         except Exception:
-            return TaskResult(success=False, message="Invalid server_url", data={"logs": logs})
+            return TaskResult(success=False, message="Invalid server_url")
         if parsed.scheme not in {"http", "https"} or not parsed.host:
-            return TaskResult(success=False, message="server_url must be http(s)://host[:port]", data={"logs": logs})
+            return TaskResult(success=False, message="server_url must be http(s)://host[:port]")
 
-        log(f"Target: {parsed.host}")
+        await ctx.log(f"Target: {parsed.host}")
 
         client_name = _sanitize_header_value(cfg.client_name)
         device_name = _sanitize_header_value(cfg.device_name)
@@ -85,9 +79,9 @@ class EmbyKeepAliveTask(TaskHandler[EmbyKeepAliveConfig]):
             async with contextlib.AsyncExitStack() as stack:
                 effective_proxy = None
                 if proxy_runner:
-                    log("Starting proxy...")
+                    await ctx.log("Starting proxy...")
                     effective_proxy = await stack.enter_async_context(proxy_runner)
-                    log(f"Proxy ready: {effective_proxy}")
+                    await ctx.log(f"Proxy ready: {effective_proxy}")
 
                 async with httpx.AsyncClient(
                     headers=headers,
@@ -96,44 +90,44 @@ class EmbyKeepAliveTask(TaskHandler[EmbyKeepAliveConfig]):
                     follow_redirects=True,
                     proxy=effective_proxy,
                 ) as client:
-                    log("Authenticating...")
-                    user_id, access_token = await self._authenticate(client, base_url, cfg, log)
+                    await ctx.log("Authenticating...")
+                    user_id, access_token = await self._authenticate(client, base_url, cfg, ctx)
                     if not user_id or not access_token:
-                        return TaskResult(success=False, message="Authentication failed", data={"logs": logs})
+                        return TaskResult(success=False, message="Authentication failed")
 
-                    log(f"Authenticated: user_id={user_id[:8]}...")
+                    await ctx.log(f"Authenticated: user_id={user_id[:8]}...")
                     client.headers["X-Emby-Token"] = access_token
 
-                    log("Fetching media items...")
+                    await ctx.log("Fetching media items...")
                     item_id, item_name = await self._get_playable_item(client, base_url, user_id, cfg)
                     if not item_id:
-                        log("No playable items, reporting capabilities...")
+                        await ctx.log("No playable items, reporting capabilities...")
                         await self._report_capabilities(client, base_url, headers)
                         return TaskResult(
                             success=True,
                             message="No playable items found, session kept alive via capabilities report",
-                            data={"user_id": user_id, "logs": logs}
+                            data={"user_id": user_id}
                         )
 
-                    log(f"Selected: {item_name or item_id}")
-                    await self._simulate_playback(client, base_url, headers, user_id, item_id, cfg, log)
+                    await ctx.log(f"Selected: {item_name or item_id}")
+                    await self._simulate_playback(client, base_url, headers, user_id, item_id, cfg, ctx)
 
                     return TaskResult(
                         success=True,
                         message=f"Keep-alive successful: played {cfg.play_duration}s",
-                        data={"user_id": user_id, "item_id": item_id, "item_name": item_name, "logs": logs}
+                        data={"user_id": user_id, "item_id": item_id, "item_name": item_name}
                     )
 
         except Exception as e:
-            log(f"Error: {type(e).__name__}: {e}")
-            return TaskResult(success=False, message=f"{type(e).__name__}: {e}", data={"logs": logs})
+            await ctx.log(f"Error: {type(e).__name__}: {e}")
+            return TaskResult(success=False, message=f"{type(e).__name__}: {e}")
 
     async def _authenticate(
         self,
         client: httpx.AsyncClient,
         base_url: str,
         cfg: EmbyKeepAliveConfig,
-        log,
+        ctx: TaskContext,
     ) -> tuple[Optional[str], Optional[str]]:
         if cfg.api_key:
             try:
@@ -146,19 +140,19 @@ class EmbyKeepAliveTask(TaskHandler[EmbyKeepAliveConfig]):
                     for u in users:
                         if u.get("Name", "").lower() == cfg.username.lower():
                             return u["Id"], cfg.api_key
-                    log(f"User '{cfg.username}' not found")
+                    await ctx.log(f"User '{cfg.username}' not found")
                     return None, None
                 if users:
                     return users[0]["Id"], cfg.api_key
 
             except httpx.HTTPStatusError as e:
-                log(f"API key auth failed: HTTP {e.response.status_code}")
+                await ctx.log(f"API key auth failed: HTTP {e.response.status_code}")
             except Exception as e:
-                log(f"API key auth failed: {type(e).__name__}")
+                await ctx.log(f"API key auth failed: {type(e).__name__}")
             return None, None
 
         if not cfg.username:
-            log("No credentials provided")
+            await ctx.log("No credentials provided")
             return None, None
 
         try:
@@ -171,9 +165,9 @@ class EmbyKeepAliveTask(TaskHandler[EmbyKeepAliveConfig]):
             return data["User"]["Id"], data["AccessToken"]
 
         except httpx.HTTPStatusError as e:
-            log(f"Auth failed: HTTP {e.response.status_code}")
+            await ctx.log(f"Auth failed: HTTP {e.response.status_code}")
         except Exception as e:
-            log(f"Auth failed: {type(e).__name__}")
+            await ctx.log(f"Auth failed: {type(e).__name__}")
         return None, None
 
     async def _get_playable_item(
@@ -233,7 +227,7 @@ class EmbyKeepAliveTask(TaskHandler[EmbyKeepAliveConfig]):
         user_id: str,
         item_id: str,
         cfg: EmbyKeepAliveConfig,
-        log,
+        ctx: TaskContext,
     ) -> None:
         play_session_id = uuid.uuid4().hex
 
@@ -250,10 +244,10 @@ class EmbyKeepAliveTask(TaskHandler[EmbyKeepAliveConfig]):
                     "PositionTicks": 0,
                 }
             )
-            log("Playback started")
+            await ctx.log("Playback started")
 
         except Exception as e:
-            log(f"Failed to start playback: {type(e).__name__}")
+            await ctx.log(f"Failed to start playback: {type(e).__name__}")
 
         steps = cfg.play_duration // cfg.report_interval
         for i in range(steps):
@@ -273,7 +267,7 @@ class EmbyKeepAliveTask(TaskHandler[EmbyKeepAliveConfig]):
                         "EventName": "timeupdate",
                     }
                 )
-                log(f"Progress: {elapsed}s / {cfg.play_duration}s")
+                await ctx.log(f"Progress: {elapsed}s / {cfg.play_duration}s")
             except Exception:
                 pass
 
@@ -287,7 +281,7 @@ class EmbyKeepAliveTask(TaskHandler[EmbyKeepAliveConfig]):
                     "PositionTicks": cfg.play_duration * 10_000_000,
                 }
             )
-            log("Playback stopped")
+            await ctx.log("Playback stopped")
 
         except Exception:
             pass

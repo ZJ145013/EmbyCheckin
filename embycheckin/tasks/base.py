@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import abc
+import inspect
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, ClassVar, Generic, Optional, TypeVar
+from typing import Any, Callable, ClassVar, Generic, Optional, TypeVar
 
 from pydantic import BaseModel
 
@@ -41,8 +42,20 @@ class TaskContext:
     account: Optional[AccountSnapshot]
     now: datetime
     settings: Any
+    run_id: Optional[int] = None
+    _log_callback: Optional[Callable[[str], Any]] = field(default=None, repr=False)
     resources: dict[str, Any] = field(default_factory=dict)
     triggered_by: str = "scheduler"
+
+    async def log(self, message: str) -> None:
+        if not self._log_callback:
+            return
+        try:
+            out = self._log_callback(message)
+            if inspect.isawaitable(out):
+                await out
+        except Exception:
+            pass
 
 
 @dataclass(slots=True)
