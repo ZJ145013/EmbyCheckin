@@ -140,6 +140,8 @@
                 </div>
 
                 {% set last_run = last_runs.get(task.id) %}
+
+                <!-- 最近执行信息 -->
                 {% if last_run %}
                 <div class="bg-slate-50 rounded-xl p-3.5 flex items-center justify-between border border-slate-100">
                     <div class="flex items-center space-x-3">
@@ -161,7 +163,10 @@
                         {{ '成功' if last_run.status == 'success' else ('失败' if last_run.status == 'failed' else '运行中') }}
                     </span>
                 </div>
-                {% elif task.enabled and next_runs.get(task.id) %}
+                {% endif %}
+
+                <!-- 下次执行时间 -->
+                {% if task.enabled and next_runs.get(task.id) %}
                 <div class="bg-slate-50 rounded-xl p-3.5 flex items-center space-x-3 border border-slate-100">
                     <div class="bg-indigo-100 p-1.5 rounded-lg text-indigo-600">
                         <i class="ri-calendar-check-line"></i>
@@ -171,11 +176,11 @@
                         <p class="text-sm text-slate-700 font-mono font-medium">{{ next_runs.get(task.id) }}</p>
                     </div>
                 </div>
-                {% elif not task.enabled %}
+                {% elif not task.enabled and not last_run %}
                 <div class="bg-slate-50 rounded-xl p-4 flex items-center justify-center text-slate-400 text-sm border border-slate-100 border-dashed">
                     <i class="ri-pause-circle-line mr-2"></i>任务已暂停
                 </div>
-                {% else %}
+                {% elif not next_runs.get(task.id) and not last_run %}
                 <div class="bg-amber-50 rounded-xl p-4 flex items-center justify-center text-amber-600 text-sm border border-amber-100">
                     <i class="ri-error-warning-line mr-2"></i>调度未生效
                 </div>
