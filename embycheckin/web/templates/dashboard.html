@@ -68,9 +68,9 @@
         </a>
     </div>
     {% else %}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div x-data="{ showLogsModal: false, currentTaskId: null, currentRunId: null, logs: [], loading: false, eventSource: null }" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {% for task in tasks %}
-        <div x-data="{ showLogs: false, logs: [], loading: false }" class="bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 flex flex-col h-full group">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 flex flex-col h-full group">
             <!-- Card Header -->
             <div class="p-6 border-b border-slate-50 flex items-start justify-between">
                 <div class="flex items-center space-x-3">
@@ -109,7 +109,7 @@
                         <a href="/tasks/{{ task.id }}/edit" class="block px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
                             <i class="ri-edit-line mr-2 align-middle text-slate-400"></i>编辑
                         </a>
-                        <button @click="open = false; showLogs = !showLogs; if(showLogs && logs.length === 0) { loading = true; fetch('/api/v1/tasks/{{ task.id }}/last-run').then(r => r.json()).then(d => { logs = d?.result?.logs || ['无日志记录']; loading = false; }).catch(() => { logs = ['加载失败']; loading = false; }); }" class="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
+                        <button @click="open = false; fetch('/api/v1/tasks/{{ task.id }}/last-run').then(r => r.json()).then(d => { if(d && d.id) { currentTaskId = {{ task.id }}; currentRunId = d.id; showLogsModal = true; logs = []; loading = true; if(eventSource) { eventSource.close(); } eventSource = new EventSource('/api/v1/runs/' + d.id + '/events'); eventSource.onmessage = (e) => { const msg = JSON.parse(e.data); if(msg.type === 'log') { logs.push(msg.message); loading = false; setTimeout(() => { const container = $refs.logContainer; if(container) container.scrollTop = container.scrollHeight; }, 10); } else if(msg.type === 'done') { eventSource.close(); eventSource = null; loading = false; } else if(msg.type === 'error') { logs.push('错误: ' + msg.message); eventSource.close(); eventSource = null; loading = false; } }; eventSource.onerror = () => { logs.push('连接错误'); eventSource.close(); eventSource = null; loading = false; }; } else { showToast('暂无执行记录', 'error'); } });" class="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
                             <i class="ri-file-list-line mr-2 align-middle text-slate-400"></i>日志
                         </button>
                         <a href="/tasks/{{ task.id }}/runs" class="block px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
@@ -203,27 +203,6 @@
                     {% endif %}
                 </div>
 
-                <!-- Expandable Logs Section -->
-                <div x-show="showLogs" x-transition class="border-t border-slate-100 -mx-6 -mb-5 mt-5">
-                    <div class="p-4 bg-slate-50">
-                        <div class="flex items-center justify-between mb-3">
-                            <h5 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                                <i class="ri-terminal-box-line"></i>最新日志
-                            </h5>
-                            <button @click="showLogs = false" class="text-slate-400 hover:text-slate-600 p-1 rounded hover:bg-slate-100">
-                                <i class="ri-close-line text-sm"></i>
-                            </button>
-                        </div>
-                        <div x-show="loading" class="text-center py-4">
-                            <i class="ri-loader-4-line animate-spin text-indigo-500 text-xl"></i>
-                        </div>
-                        <div x-show="!loading" class="bg-slate-900 rounded-lg p-3 max-h-48 overflow-y-auto text-xs font-mono space-y-1">
-                            <template x-for="log in logs" :key="log">
-                                <div x-text="log" class="text-slate-300"></div>
-                            </template>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <!-- Card Footer -->
@@ -239,6 +218,57 @@
             </div>
         </div>
         {% endfor %}
+
+        <!-- Logs Modal -->
+        <div x-show="showLogsModal"
+             x-cloak
+             @click.self="showLogsModal = false; if(eventSource) { eventSource.close(); eventSource = null; }"
+             class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0">
+            <div @click.stop
+                 class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full mx-4 max-h-[80vh] flex flex-col"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100 scale-100"
+                 x-transition:leave-end="opacity-0 scale-95">
+                <!-- Modal Header -->
+                <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                    <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <i class="ri-terminal-box-line text-indigo-600"></i>
+                        最新日志
+                        <span x-show="loading" class="text-xs font-normal text-slate-500">(实时流式加载中...)</span>
+                    </h3>
+                    <button @click="showLogsModal = false; if(eventSource) { eventSource.close(); eventSource = null; }"
+                            class="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100 transition-colors">
+                        <i class="ri-close-line text-xl"></i>
+                    </button>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="flex-1 overflow-hidden p-6">
+                    <div x-show="loading && logs.length === 0" class="flex items-center justify-center h-full">
+                        <div class="text-center">
+                            <i class="ri-loader-4-line animate-spin text-indigo-500 text-4xl mb-3"></i>
+                            <p class="text-sm text-slate-500">连接日志流...</p>
+                        </div>
+                    </div>
+                    <div x-show="logs.length > 0" class="h-full">
+                        <div class="bg-slate-900 rounded-xl p-4 h-full overflow-y-auto text-sm font-mono" x-ref="logContainer">
+                            <template x-for="(log, index) in logs" :key="index">
+                                <div x-text="log" class="text-slate-300 mb-1"></div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     {% endif %}
 </div>
