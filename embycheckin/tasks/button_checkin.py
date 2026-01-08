@@ -70,32 +70,26 @@ class ButtonCheckinTask(TaskHandler[ButtonCheckinConfig]):
                 router.clear_queue(ctx.account.id, bot_id)
 
                 # 发送触发命令
-                await ctx.log(f"Sending '{cfg.trigger_command}' to {ctx.task.target}")
                 logger.info(f"[{ctx.task.name}] Sending '{cfg.trigger_command}' to {ctx.task.target}")
                 await client.send_message(ctx.task.target, cfg.trigger_command)
 
                 # 等待面板出现
-                await ctx.log("Waiting for panel...")
                 await asyncio.sleep(cfg.wait_panel_seconds)
 
                 # 等待带按钮的消息
                 panel_msg = await self._wait_for_panel(ctx, router, bot_id, cfg)
 
                 if not panel_msg:
-                    await ctx.log("Timeout waiting for panel")
                     return TaskResult(success=False, message="Timeout waiting for panel")
 
                 # 查找并点击按钮
-                await ctx.log(f"Looking for button '{cfg.button_text}'")
                 clicked, callback_text = await self._click_button(ctx, panel_msg, cfg)
 
                 if not clicked:
-                    await ctx.log(f"Button '{cfg.button_text}' not found")
                     return TaskResult(success=False, message=f"Button '{cfg.button_text}' not found")
 
                 # 如果有回调响应（弹窗），直接用它判断结果
                 if callback_text:
-                    await ctx.log(f"Got callback: {callback_text[:50]}")
                     return self._parse_result(callback_text, cfg)
 
                 # 否则等待新消息

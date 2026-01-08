@@ -83,7 +83,6 @@ class TerminusCheckinTask(TaskHandler[TerminusCheckinConfig]):
                     delay = random.uniform(cfg.random_delay_min, cfg.random_delay_max)
                     await asyncio.sleep(delay)
 
-                await ctx.log(f"Sending {cfg.command} to {ctx.task.target}")
                 await client.send_message(ctx.task.target, cfg.command)
                 logger.info(f"[{ctx.task.name}] Sent {cfg.command} to {ctx.task.target}")
 
@@ -128,7 +127,6 @@ class TerminusCheckinTask(TaskHandler[TerminusCheckinConfig]):
                 continue
 
             if msg.photo and msg.reply_markup:
-                await ctx.log("Processing captcha...")
                 captcha_result = await self._handle_captcha(ctx, client, msg)
                 if captcha_result:
                     return captcha_result
@@ -139,24 +137,20 @@ class TerminusCheckinTask(TaskHandler[TerminusCheckinConfig]):
                 "重复签到", "签到机会已用完", "已用完"
             ]
             if any(kw in text for kw in already_keywords):
-                await ctx.log("Already checked in today")
                 return TaskResult(success=True, message="Already checked in today", data={"already_checked": True})
 
             success_keywords = ["签到成功", "成功签到", "获得", "积分", "恭喜", "完成签到"]
             if any(kw in text for kw in success_keywords):
                 match = re.search(r"[+＋]?\s*(\d+)\s*[积分点]", text)
                 points = match.group(1) if match else "unknown"
-                await ctx.log(f"Checkin success, points: {points}")
                 return TaskResult(success=True, message=f"Checkin success, points: {points}", data={"points": points})
 
             fail_keywords = ["失败", "错误", "验证码错误", "回答错误", "超时", "过期", "无效"]
             if any(kw in text for kw in fail_keywords):
-                await ctx.log(f"Checkin failed: {text[:50]}")
                 return TaskResult(success=False, message=f"Checkin failed: {text[:100]}")
 
             account_fail = ["黑名单", "封禁", "禁止", "未注册", "不存在", "未绑定"]
             if any(kw in text for kw in account_fail):
-                await ctx.log(f"Account issue: {text[:50]}")
                 return TaskResult(success=False, message=f"Account issue: {text[:100]}")
 
         return TaskResult(success=False, message="Timeout waiting for checkin result")
