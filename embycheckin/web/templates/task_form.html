@@ -417,15 +417,15 @@ function taskForm() {
                 wait_for_reply: {{ 'true' if (task and task.params and task.type == 'send_message' and task.params.wait_for_reply) else 'false' }}
             },
             emby_keepalive: {
-                server_url: {{ (task.params.server_url if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
-                username: {{ (task.params.username if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
-                password: {{ (task.params.password if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
-                api_key: {{ (task.params.api_key if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
-                proxy_urls: {{ ('\n'.join(task.params.proxy_urls) if task and task.params and task.type == 'emby_keepalive' and task.params.proxy_urls else (task.params.proxy_url if task and task.params and task.type == 'emby_keepalive' and task.params.proxy_url else '')) | tojson }},
-                proxy_test_url: {{ (task.params.proxy_test_url if task and task.params and task.type == 'emby_keepalive' else 'https://www.google.com') | tojson }},
-                proxy_test_timeout: {{ task.params.proxy_test_timeout if task and task.params and task.type == 'emby_keepalive' else 5 }},
-                play_duration: {{ task.params.play_duration if task and task.params and task.type == 'emby_keepalive' else 120 }},
-                verify_ssl: {{ 'true' if (not task or task.type != 'emby_keepalive' or not task.params or task.params.verify_ssl != false) else 'false' }}
+                server_url: {{ (task.params.get('server_url', '') if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
+                username: {{ (task.params.get('username', '') if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
+                password: {{ (task.params.get('password', '') if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
+                api_key: {{ (task.params.get('api_key', '') if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
+                proxy_urls: {{ ('\n'.join(task.params.get('proxy_urls', [])) if task and task.params and task.type == 'emby_keepalive' and task.params.get('proxy_urls') else (task.params.get('proxy_url', '') if task and task.params and task.type == 'emby_keepalive' else '')) | tojson }},
+                proxy_test_url: {{ (task.params.get('proxy_test_url', 'https://www.google.com') if task and task.params and task.type == 'emby_keepalive' else 'https://www.google.com') | tojson }},
+                proxy_test_timeout: {{ task.params.get('proxy_test_timeout', 5) if task and task.params and task.type == 'emby_keepalive' else 5 }},
+                play_duration: {{ task.params.get('play_duration', 120) if task and task.params and task.type == 'emby_keepalive' else 120 }},
+                verify_ssl: {{ 'true' if (not task or task.type != 'emby_keepalive' or not task.params or task.params.get('verify_ssl', True) != False) else 'false' }}
             },
             exam_assistant: {
                 keywords: {{ (','.join(task.params.keywords) if task and task.params and task.type == 'exam_assistant' and task.params.keywords else '考核,题目,问答,答题,quiz,考试') | tojson }},
