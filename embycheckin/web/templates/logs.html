@@ -241,9 +241,11 @@ function logsPage() {
                 this.eventSource.close();
             }
             this.isStreaming = true;
+            console.log('Starting SSE stream for run ID:', id);
             this.eventSource = new EventSource('/api/v1/runs/' + id + '/events');
 
             this.eventSource.onmessage = (event) => {
+                console.log('SSE message received:', event.data);
                 const data = JSON.parse(event.data);
                 if (data.type === 'log') {
                     if (!this.currentLog) this.currentLog = { logs: [] };
@@ -255,13 +257,15 @@ function logsPage() {
                     this.eventSource.close();
                     this.eventSource = null;
                 } else if (data.type === 'error') {
+                    console.error('SSE error:', data.message);
                     this.isStreaming = false;
                     this.eventSource.close();
                     this.eventSource = null;
                 }
             };
 
-            this.eventSource.onerror = () => {
+            this.eventSource.onerror = (error) => {
+                console.error('SSE connection error:', error);
                 this.isStreaming = false;
                 if (this.eventSource) {
                     this.eventSource.close();
