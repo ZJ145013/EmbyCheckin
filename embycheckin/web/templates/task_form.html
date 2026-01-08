@@ -286,9 +286,19 @@
                         代理地址
                         <span class="text-xs text-gray-500 font-normal ml-1">(每行一个,支持多个,自动选择有效代理)</span>
                     </label>
-                    <textarea x-model="params.emby_keepalive.proxy_urls" rows="3"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2.5 font-mono text-xs"
-                        placeholder="socks5://127.0.0.1:1080&#10;ss://method:password@server:port&#10;hysteria2://password@server:port?sni=example.com"></textarea>
+                    <div class="relative flex border border-gray-300 rounded-lg shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 overflow-hidden">
+                        <div class="flex-none bg-slate-50 px-2 py-2.5 border-r border-gray-300 select-none">
+                            <div x-data="{ lineCount: 3 }" class="text-xs font-mono text-slate-500 text-right leading-[1.4rem] space-y-0">
+                                <template x-for="i in Math.max(3, (params.emby_keepalive.proxy_urls || '').split('\\n').length)" :key="i">
+                                    <div x-text="i" class="h-[1.4rem]"></div>
+                                </template>
+                            </div>
+                        </div>
+                        <textarea x-model="params.emby_keepalive.proxy_urls" rows="3"
+                            class="flex-1 border-0 focus:ring-0 sm:text-sm p-2.5 font-mono text-xs resize-y"
+                            style="line-height: 1.4rem;"
+                            placeholder="socks5://127.0.0.1:1080&#10;ss://method:password@server:port&#10;hysteria2://password@server:port?sni=example.com"></textarea>
+                    </div>
                     <p class="mt-1 text-xs text-gray-500">支持 http/socks5/ss/vless/hysteria2 协议,每行一个代理地址</p>
                 </div>
                 <div>
