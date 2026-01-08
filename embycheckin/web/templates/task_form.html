@@ -40,9 +40,17 @@
                 <div class="col-span-1">
                     <label class="block text-sm font-semibold text-slate-700 mb-2">任务类型</label>
                     <select x-model="form.type" required :disabled="isEdit"
-                        class="w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-3 transition-shadow hover:shadow-md bg-white">
+                        class="w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-3 transition-shadow hover:shadow-md bg-white font-medium text-slate-700">
                         {% for t in task_types %}
-                        <option value="{{ t }}">{{ t }}{% if t == 'bot_checkin' %} (机器人签到){% elif t == 'button_checkin' %} (按钮签到){% elif t == 'send_message' %} (消息发送){% elif t == 'emby_keepalive' %} (Emby保活){% elif t == 'exam_assistant' %} (考核辅助){% endif %}</option>
+                        <option value="{{ t }}" class="py-2">
+                            {% if t == 'bot_checkin' %}🤖 机器人签到 (bot_checkin)
+                            {% elif t == 'button_checkin' %}🔘 按钮签到 (button_checkin)
+                            {% elif t == 'send_message' %}💬 消息发送 (send_message)
+                            {% elif t == 'emby_keepalive' %}💚 Emby保活 (emby_keepalive)
+                            {% elif t == 'exam_assistant' %}🎓 考核辅助 (exam_assistant)
+                            {% else %}{{ t }}
+                            {% endif %}
+                        </option>
                         {% endfor %}
                     </select>
                 </div>
@@ -54,10 +62,10 @@
                         <span x-show="form.type === 'emby_keepalive'" class="text-slate-400 text-xs font-normal">(可选)</span>
                     </label>
                     <select x-model="form.account_id" :required="form.type !== 'emby_keepalive'"
-                        class="w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-3 transition-shadow hover:shadow-md">
-                        <option value="">-- 选择账号 --</option>
+                        class="w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-3 transition-shadow hover:shadow-md font-medium text-slate-700">
+                        <option value="" class="text-slate-400">-- 选择账号 --</option>
                         {% for acc in accounts %}
-                        <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.session_name }})</option>
+                        <option value="{{ acc.id }}" class="py-2">👤 {{ acc.name }} · {{ acc.session_name }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -105,16 +113,24 @@
                 <div class="col-span-1 md:col-span-3">
                     <label class="block text-sm font-semibold text-slate-700 mb-2">快捷选择</label>
                     <select @change="if($event.target.value) form.schedule_cron = $event.target.value"
-                        class="w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-3 transition-shadow hover:shadow-md">
-                        <option value="">-- 选择预设 --</option>
-                        <option value="0 8 * * *">每天 8:00</option>
-                        <option value="0 9 * * *">每天 9:00</option>
-                        <option value="0 10 * * *">每天 10:00</option>
-                        <option value="0 12 * * *">每天 12:00</option>
-                        <option value="0 18 * * *">每天 18:00</option>
-                        <option value="0 22 * * *">每天 22:00</option>
-                        <option value="0 */6 * * *">每6小时</option>
-                        <option value="0 9 * * 1-5">工作日 9:00</option>
+                        class="w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-3 transition-shadow hover:shadow-md font-medium text-slate-700">
+                        <option value="" class="text-slate-400">-- 选择预设 --</option>
+                        <optgroup label="🌅 每日固定时间">
+                            <option value="0 8 * * *" class="py-2">☀️ 早上 8:00 (0 8 * * *)</option>
+                            <option value="0 9 * * *" class="py-2">☀️ 早上 9:00 (0 9 * * *)</option>
+                            <option value="0 10 * * *" class="py-2">☀️ 早上 10:00 (0 10 * * *)</option>
+                            <option value="0 12 * * *" class="py-2">🌤️ 中午 12:00 (0 12 * * *)</option>
+                            <option value="0 18 * * *" class="py-2">🌆 傍晚 18:00 (0 18 * * *)</option>
+                            <option value="0 22 * * *" class="py-2">🌙 晚上 22:00 (0 22 * * *)</option>
+                        </optgroup>
+                        <optgroup label="⏰ 定时执行">
+                            <option value="0 */6 * * *" class="py-2">🔄 每6小时 (0 */6 * * *)</option>
+                            <option value="0 */12 * * *" class="py-2">🔄 每12小时 (0 */12 * * *)</option>
+                        </optgroup>
+                        <optgroup label="📅 工作日">
+                            <option value="0 9 * * 1-5" class="py-2">💼 工作日 9:00 (0 9 * * 1-5)</option>
+                            <option value="0 18 * * 1-5" class="py-2">💼 工作日 18:00 (0 18 * * 1-5)</option>
+                        </optgroup>
                     </select>
                 </div>
 
