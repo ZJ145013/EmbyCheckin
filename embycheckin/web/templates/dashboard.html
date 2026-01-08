@@ -141,50 +141,67 @@
 
                 {% set last_run = last_runs.get(task.id) %}
 
-                <!-- 最近执行信息 -->
-                {% if last_run %}
-                <div class="bg-slate-50 rounded-xl p-3.5 flex items-center justify-between border border-slate-100">
-                    <div class="flex items-center space-x-3">
-                        <div class="{% if last_run.status == 'success' %}bg-emerald-100 text-emerald-600{% elif last_run.status == 'failed' %}bg-rose-100 text-rose-600{% else %}bg-slate-100 text-slate-600{% endif %} p-1.5 rounded-lg">
-                            <i class="{% if last_run.status == 'success' %}ri-checkbox-circle-line{% elif last_run.status == 'failed' %}ri-close-circle-line{% else %}ri-time-line{% endif %}"></i>
-                        </div>
-                        <div>
-                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">最近执行</p>
-                            <p class="text-xs text-slate-700 font-medium font-mono">
-                                {% if last_run.finished_at %}
-                                {{ last_run.finished_at | format_datetime('%Y-%m-%d %H:%M:%S') }}
-                                {% else %}
-                                执行中
-                                {% endif %}
-                            </p>
+                <!-- 执行信息卡片区域 -->
+                <div class="space-y-3">
+                    <!-- 最近执行信息 -->
+                    <div class="relative overflow-hidden rounded-xl border {% if last_run %}{% if last_run.status == 'success' %}border-emerald-100 bg-gradient-to-br from-emerald-50 to-white{% elif last_run.status == 'failed' %}border-rose-100 bg-gradient-to-br from-rose-50 to-white{% else %}border-slate-100 bg-gradient-to-br from-slate-50 to-white{% endif %}{% else %}border-slate-200 bg-gradient-to-br from-slate-50 to-white{% endif %}">
+                        <div class="p-4 flex items-center justify-between">
+                            <div class="flex items-center space-x-3 flex-1 min-w-0">
+                                <div class="flex-shrink-0 w-10 h-10 {% if last_run %}{% if last_run.status == 'success' %}bg-emerald-500{% elif last_run.status == 'failed' %}bg-rose-500{% else %}bg-slate-500{% endif %}{% else %}bg-slate-400{% endif %} rounded-lg flex items-center justify-center shadow-sm">
+                                    <i class="{% if last_run %}{% if last_run.status == 'success' %}ri-checkbox-circle-fill{% elif last_run.status == 'failed' %}ri-close-circle-fill{% else %}ri-time-fill{% endif %}{% else %}ri-time-line{% endif %} text-white text-lg"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <p class="text-xs font-semibold text-slate-600">最近执行</p>
+                                        {% if last_run %}
+                                        <span class="{% if last_run.status == 'success' %}bg-emerald-500 text-white{% elif last_run.status == 'failed' %}bg-rose-500 text-white{% else %}bg-slate-500 text-white{% endif %} text-[10px] px-2 py-0.5 rounded-full font-bold">
+                                            {{ '成功' if last_run.status == 'success' else ('失败' if last_run.status == 'failed' else '运行中') }}
+                                        </span>
+                                        {% else %}
+                                        <span class="bg-slate-400 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">未执行</span>
+                                        {% endif %}
+                                    </div>
+                                    <p class="text-xs font-mono text-slate-700 font-semibold truncate">
+                                        {% if last_run %}
+                                            {% if last_run.finished_at %}
+                                            {{ last_run.finished_at | format_datetime('%Y-%m-%d %H:%M:%S') }}
+                                            {% else %}
+                                            执行中...
+                                            {% endif %}
+                                        {% else %}
+                                        暂无执行记录
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <span class="{% if last_run.status == 'success' %}bg-emerald-500/10 text-emerald-700 border-emerald-200{% elif last_run.status == 'failed' %}bg-rose-500/10 text-rose-700 border-rose-200{% else %}bg-slate-500/10 text-slate-700 border-slate-200{% endif %} text-xs px-2 py-0.5 rounded-full font-semibold border">
-                        {{ '成功' if last_run.status == 'success' else ('失败' if last_run.status == 'failed' else '运行中') }}
-                    </span>
-                </div>
-                {% endif %}
 
-                <!-- 下次执行时间 -->
-                {% if task.enabled and next_runs.get(task.id) %}
-                <div class="bg-slate-50 rounded-xl p-3.5 flex items-center space-x-3 border border-slate-100">
-                    <div class="bg-indigo-100 p-1.5 rounded-lg text-indigo-600">
-                        <i class="ri-calendar-check-line"></i>
+                    <!-- 下次执行时间 -->
+                    {% if task.enabled and next_runs.get(task.id) %}
+                    <div class="relative overflow-hidden rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-white">
+                        <div class="p-4 flex items-center space-x-3">
+                            <div class="flex-shrink-0 w-10 h-10 bg-indigo-500 rounded-lg flex items-center justify-center shadow-sm">
+                                <i class="ri-calendar-event-fill text-white text-lg"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs font-semibold text-slate-600 mb-1">下次执行</p>
+                                <p class="text-xs font-mono text-slate-700 font-semibold truncate">{{ next_runs.get(task.id) }}</p>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">下次执行</p>
-                        <p class="text-sm text-slate-700 font-mono font-medium">{{ next_runs.get(task.id) }}</p>
+                    {% elif not task.enabled and not last_run %}
+                    <div class="rounded-xl border border-slate-200 border-dashed bg-slate-50 p-4 flex items-center justify-center">
+                        <i class="ri-pause-circle-line text-slate-400 mr-2"></i>
+                        <span class="text-sm text-slate-500 font-medium">任务已暂停</span>
                     </div>
+                    {% elif not next_runs.get(task.id) and not last_run %}
+                    <div class="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-4 flex items-center justify-center">
+                        <i class="ri-error-warning-line text-amber-500 mr-2"></i>
+                        <span class="text-sm text-amber-700 font-medium">调度未生效</span>
+                    </div>
+                    {% endif %}
                 </div>
-                {% elif not task.enabled and not last_run %}
-                <div class="bg-slate-50 rounded-xl p-4 flex items-center justify-center text-slate-400 text-sm border border-slate-100 border-dashed">
-                    <i class="ri-pause-circle-line mr-2"></i>任务已暂停
-                </div>
-                {% elif not next_runs.get(task.id) and not last_run %}
-                <div class="bg-amber-50 rounded-xl p-4 flex items-center justify-center text-amber-600 text-sm border border-amber-100">
-                    <i class="ri-error-warning-line mr-2"></i>调度未生效
-                </div>
-                {% endif %}
 
                 <!-- Expandable Logs Section -->
                 <div x-show="showLogs" x-transition class="border-t border-slate-100 -mx-6 -mb-5 mt-5">
