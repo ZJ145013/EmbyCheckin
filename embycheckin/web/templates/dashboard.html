@@ -150,9 +150,9 @@
                         </div>
                         <div>
                             <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">最近执行</p>
-                            <p class="text-xs text-slate-700 font-medium">
+                            <p class="text-xs text-slate-700 font-medium font-mono">
                                 {% if last_run.finished_at %}
-                                {{ last_run.finished_at | format_datetime('%m-%d %H:%M') }}
+                                {{ last_run.finished_at | format_datetime('%Y-%m-%d %H:%M:%S') }}
                                 {% else %}
                                 执行中
                                 {% endif %}
