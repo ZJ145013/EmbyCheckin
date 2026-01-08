@@ -5,39 +5,42 @@
 {% block title %}{{ '编辑任务' if task else '新建任务' }} - EmbyCheckin{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto" x-data="taskForm()">
-    
-    <div class="mb-6 flex items-center justify-between">
+<div class="max-w-5xl mx-auto" x-data="taskForm()">
+
+    <div class="mb-8 flex items-center justify-between">
         <div>
-            <h3 class="text-xl font-bold text-gray-800">{{ '编辑任务' if task else '新建任务' }}</h3>
-            <p class="text-sm text-gray-500">配置定时任务的基本信息和执行参数</p>
+            <h3 class="text-2xl font-bold text-slate-800 tracking-tight">{{ '编辑任务' if task else '新建任务' }}</h3>
+            <p class="text-sm text-slate-500 mt-1">配置定时任务的基本信息和执行参数</p>
         </div>
-        <a href="/" class="text-gray-500 hover:text-gray-700 font-medium text-sm flex items-center">
-            <i class="ri-close-circle-line text-lg mr-1"></i>取消
+        <a href="/" class="text-slate-500 hover:text-slate-700 font-medium text-sm flex items-center bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
+            <i class="ri-close-circle-line text-lg mr-1.5"></i>取消
         </a>
     </div>
 
     <form @submit.prevent="submitForm" class="space-y-6">
-        
+
         <!-- 基础配置 -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-50 bg-gray-50/50">
-                <h4 class="text-base font-semibold text-gray-800 flex items-center">
-                    <i class="ri-settings-3-line mr-2 text-indigo-500"></i>基础配置
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-indigo-50/50 to-transparent">
+                <h4 class="text-base font-bold text-slate-800 flex items-center">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3">
+                        <i class="ri-settings-3-line text-indigo-600"></i>
+                    </div>
+                    基础配置
                 </h4>
             </div>
             <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="col-span-1">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">任务名称</label>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">任务名称</label>
                     <input type="text" x-model="form.name" required
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5"
+                        class="w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-3 transition-shadow hover:shadow-md"
                         placeholder="例如：Emby 每日签到">
                 </div>
 
                 <div class="col-span-1">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">任务类型</label>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">任务类型</label>
                     <select x-model="form.type" required :disabled="isEdit"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
+                        class="w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-3 transition-shadow hover:shadow-md bg-white">
                         {% for t in task_types %}
                         <option value="{{ t }}">{{ t }}{% if t == 'bot_checkin' %} (机器人签到){% elif t == 'button_checkin' %} (按钮签到){% elif t == 'send_message' %} (消息发送){% elif t == 'emby_keepalive' %} (Emby保活){% elif t == 'exam_assistant' %} (考核辅助){% endif %}</option>
                         {% endfor %}
@@ -45,13 +48,13 @@
                 </div>
 
                 <div class="col-span-1">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">
                         关联账号
-                        <span x-show="form.type !== 'emby_keepalive'" class="text-red-500">*</span>
-                        <span x-show="form.type === 'emby_keepalive'" class="text-gray-400 text-xs">(可选)</span>
+                        <span x-show="form.type !== 'emby_keepalive'" class="text-rose-500">*</span>
+                        <span x-show="form.type === 'emby_keepalive'" class="text-slate-400 text-xs font-normal">(可选)</span>
                     </label>
                     <select x-model="form.account_id" :required="form.type !== 'emby_keepalive'"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
+                        class="w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-3 transition-shadow hover:shadow-md">
                         <option value="">-- 选择账号 --</option>
                         {% for acc in accounts %}
                         <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.session_name }})</option>
@@ -60,17 +63,17 @@
                 </div>
 
                 <div class="col-span-1">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">
                         目标对象 (Bot/Chat)
-                        <span x-show="form.type !== 'emby_keepalive'" class="text-red-500">*</span>
-                        <span x-show="form.type === 'emby_keepalive'" class="text-gray-400 text-xs">(可选)</span>
+                        <span x-show="form.type !== 'emby_keepalive'" class="text-rose-500">*</span>
+                        <span x-show="form.type === 'emby_keepalive'" class="text-slate-400 text-xs font-normal">(可选)</span>
                     </label>
-                    <div class="relative rounded-md shadow-sm">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <span class="text-gray-500 sm:text-sm">@</span>
+                    <div class="relative rounded-xl shadow-sm">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <span class="text-slate-500 sm:text-sm font-medium">@</span>
                         </div>
                         <input type="text" x-model="form.target" :required="form.type !== 'emby_keepalive'"
-                            class="w-full pl-7 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5"
+                            class="w-full pl-9 rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-3 transition-shadow hover:shadow-md"
                             placeholder="EmbyPublicBot">
                     </div>
                 </div>
@@ -78,25 +81,31 @@
         </div>
 
         <!-- 调度配置 -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-50 bg-gray-50/50">
-                <h4 class="text-base font-semibold text-gray-800 flex items-center">
-                    <i class="ri-time-line mr-2 text-indigo-500"></i>调度配置
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-blue-50/50 to-transparent">
+                <h4 class="text-base font-bold text-slate-800 flex items-center">
+                    <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center mr-3">
+                        <i class="ri-time-line text-blue-600"></i>
+                    </div>
+                    调度配置
                 </h4>
             </div>
             <div class="p-6 grid grid-cols-1 md:grid-cols-6 gap-6">
                 <div class="col-span-1 md:col-span-3">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Cron 表达式</label>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Cron 表达式</label>
                     <input type="text" x-model="form.schedule_cron" required
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5 font-mono"
+                        class="w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-3 font-mono bg-slate-50 tracking-wide text-indigo-700 transition-shadow hover:shadow-md"
                         placeholder="0 9 * * *">
-                    <p class="mt-1 text-xs text-gray-500">分 时 日 月 周 (例: 0 9 * * * 表示每天9点)</p>
+                    <p class="mt-2 text-xs text-slate-500 flex items-center">
+                        <i class="ri-information-line mr-1"></i>
+                        分 时 日 月 周 (例: 0 9 * * * 表示每天9点)
+                    </p>
                 </div>
 
                 <div class="col-span-1 md:col-span-3">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">快捷选择</label>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">快捷选择</label>
                     <select @change="if($event.target.value) form.schedule_cron = $event.target.value"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
+                        class="w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-3 transition-shadow hover:shadow-md">
                         <option value="">-- 选择预设 --</option>
                         <option value="0 8 * * *">每天 8:00</option>
                         <option value="0 9 * * *">每天 9:00</option>
@@ -110,31 +119,34 @@
                 </div>
 
                 <div class="col-span-1 md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">时区</label>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">时区</label>
                     <input type="text" x-model="form.timezone"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
+                        class="w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-3 transition-shadow hover:shadow-md">
                 </div>
                 <div class="col-span-1 md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">重试次数</label>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">重试次数</label>
                     <input type="number" x-model.number="form.retries" min="0"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
+                        class="w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-3 transition-shadow hover:shadow-md">
                 </div>
                 <div class="col-span-1 md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">随机延迟 (秒)</label>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">随机延迟 (秒)</label>
                     <input type="number" x-model.number="form.jitter_seconds" min="0"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
+                        class="w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-3 transition-shadow hover:shadow-md">
                 </div>
                 <div class="col-span-1 md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">最大运行时间 (秒)</label>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">最大运行时间 (秒)</label>
                     <input type="number" x-model.number="form.max_runtime_seconds" min="1"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
-                    <p class="mt-1 text-xs text-gray-500">任务执行超过此时间将被强制终止。Emby 保活任务推荐设置为 播放时长+60 秒</p>
+                        class="w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-3 transition-shadow hover:shadow-md">
+                    <p class="mt-2 text-xs text-slate-500 flex items-start">
+                        <i class="ri-error-warning-line mr-1 mt-0.5 text-amber-500"></i>
+                        <span>任务执行超过此时间将被强制终止。Emby 保活任务推荐设置为 播放时长+60 秒</span>
+                    </p>
                 </div>
             </div>
         </div>
 
         <!-- Bot Checkin Config -->
-        <div x-show="form.type === 'bot_checkin'" class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden" x-transition>
+        <div x-show="form.type === 'bot_checkin'" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden" x-transition>
             <div class="px-6 py-4 border-b border-gray-50 bg-gray-50/50">
                 <h4 class="text-base font-semibold text-gray-800 flex items-center">
                     <i class="ri-robot-line mr-2 text-indigo-500"></i>机器人签到配置
@@ -325,14 +337,14 @@
         <div class="flex items-center justify-between pt-4">
             <div class="flex items-center">
                 <input type="checkbox" x-model="form.enabled" class="h-5 w-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                <label class="ml-3 block text-sm font-medium text-gray-900">立即启用此任务</label>
+                <label class="ml-3 block text-sm font-semibold text-slate-800">立即启用此任务</label>
             </div>
-            <div class="flex space-x-3">
-                <a href="/" class="inline-flex justify-center py-2.5 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-                    取消
+            <div class="flex space-x-4">
+                <a href="/" class="inline-flex items-center justify-center py-3 px-8 border border-slate-300 shadow-sm text-sm font-semibold rounded-xl text-slate-700 bg-white hover:bg-slate-50 transition-all hover:shadow-md">
+                    <i class="ri-close-line mr-2"></i>取消
                 </a>
-                <button type="submit" class="inline-flex justify-center py-2.5 px-6 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
-                    保存任务
+                <button type="submit" class="inline-flex items-center justify-center py-3 px-8 border border-transparent shadow-md text-sm font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0">
+                    <i class="ri-save-line mr-2"></i>保存任务
                 </button>
             </div>
         </div>
