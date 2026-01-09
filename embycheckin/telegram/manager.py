@@ -137,8 +137,18 @@ class TelegramClientManager:
         lock = self._get_lock(session_name)
         async with lock:
             if session_name in self._clients:
-                yield self._clients[session_name]
-                return
+                cached_client = self._clients[session_name]
+                if cached_client.is_connected and hasattr(cached_client, 'is_started') and cached_client.is_started:
+                    yield cached_client
+                    return
+                else:
+                    logger.warning(f"Cached client for {session_name} is not properly started, recreating")
+                    try:
+                        if cached_client.is_connected:
+                            await cached_client.stop()
+                    except Exception:
+                        pass
+                    del self._clients[session_name]
 
             client = self._create_client(session_name)
             try:
@@ -154,7 +164,17 @@ class TelegramClientManager:
         lock = self._get_lock(session_name)
         async with lock:
             if session_name in self._clients:
-                return self._clients[session_name]
+                cached_client = self._clients[session_name]
+                if cached_client.is_connected and hasattr(cached_client, 'is_started') and cached_client.is_started:
+                    return cached_client
+                else:
+                    logger.warning(f"Cached client for {session_name} is not properly started, recreating")
+                    try:
+                        if cached_client.is_connected:
+                            await cached_client.stop()
+                    except Exception:
+                        pass
+                    del self._clients[session_name]
 
             client = self._create_client(session_name)
             await client.start()
