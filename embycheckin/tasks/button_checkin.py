@@ -79,6 +79,15 @@ class ButtonCheckinTask(TaskHandler[ButtonCheckinConfig]):
                 if not panel_msg:
                     return TaskResult(success=False, message="Timeout waiting for panel")
 
+                # 检查是否是已签到消息
+                if hasattr(panel_msg, '_is_already_checked') and panel_msg._is_already_checked:
+                    text = getattr(panel_msg, '_already_checked_text', '')
+                    return TaskResult(
+                        success=True,
+                        message="Already checked in today",
+                        data={"already_checked": True, "response": text}
+                    )
+
                 # 查找并点击按钮
                 clicked, callback_text = await self._click_button(ctx, panel_msg, cfg)
 
@@ -106,34 +115,43 @@ class ButtonCheckinTask(TaskHandler[ButtonCheckinConfig]):
         bot_id: int,
         cfg: ButtonCheckinConfig,
     ) -> Optional[Any]:
-        """等待带有内联键盘的消息，或者包含已签到信息的消息"""
-        try:
-            msg = await router.wait_for(
-                ctx.account.id,
-                bot_id,
-                predicate=lambda m: m.from_user and m.from_user.id == bot_id,
-                timeout=cfg.timeout,
-            )
-            # 检查是否有内联键盘
-            if msg.reply_markup and hasattr(msg.reply_markup, 'inline_keyboard'):
-                return msg
+        """等待带有内联键盘的消息,或者包含已签到信息的消息"""
+        end_time = asyncio.get_event_loop().time() + cfg.timeout
 
-            # 没有按钮，检查是否是已签到消息
-            text = msg.text or msg.caption or ""
-            for kw in cfg.already_checked_keywords:
-                if kw in text:
-                    logger.info(f"[{ctx.task.name}] Detected already-checked message: {text[:100]}")
-                    # 返回特殊标记，让调用者知道这是已签到状态
-                    msg._is_already_checked = True
-                    msg._already_checked_text = text
+        while asyncio.get_event_loop().time() < end_time:
+            remaining = end_time - asyncio.get_event_loop().time()
+            if remaining <= 0:
+                break
+
+            try:
+                msg = await router.wait_for(
+                    ctx.account.id,
+                    bot_id,
+                    predicate=lambda m: m.from_user and m.from_user.id == bot_id,
+                    timeout=remaining,
+                )
+
+                # 检查是否有内联键盘
+                if msg.reply_markup and hasattr(msg.reply_markup, 'inline_keyboard'):
                     return msg
 
-            # 既没有按钮也不是已签到消息，继续等待
-            logger.debug(f"[{ctx.task.name}] Received message without buttons, waiting for panel: {text[:50]}")
-            return None
+                # 没有按钮,检查是否是已签到消息
+                text = msg.text or msg.caption or ""
+                for kw in cfg.already_checked_keywords:
+                    if kw in text:
+                        logger.info(f"[{ctx.task.name}] Detected already-checked message: {text[:100]}")
+                        msg._is_already_checked = True
+                        msg._already_checked_text = text
+                        return msg
 
-        except asyncio.TimeoutError:
-            return None
+                # 既没有按钮也不是已签到消息,继续等待下一条消息
+                logger.debug(f"[{ctx.task.name}] Received message without buttons, waiting for panel: {text[:50]}")
+                continue
+
+            except asyncio.TimeoutError:
+                return None
+
+        return None
 
     def _parse_result(self, text: str, cfg: ButtonCheckinConfig) -> TaskResult:
         """解析响应文本，判断签到结果"""
