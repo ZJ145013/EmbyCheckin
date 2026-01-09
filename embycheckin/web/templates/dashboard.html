@@ -282,7 +282,7 @@
                                 </div>
                                 <h4 class="text-sm font-semibold text-slate-700">其他数据</h4>
                             </div>
-                            <pre class="text-xs font-mono text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-xl p-3 sm:p-4 border border-slate-200 overflow-y-auto max-h-96" x-text="JSON.stringify(fullResult.task_result, null, 2)"></pre>
+                            <pre class="text-xs font-mono text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-xl p-3 sm:p-4 border border-slate-200 overflow-y-auto max-h-96" x-text="fullResult?.task_result ? JSON.stringify(fullResult.task_result, null, 2) : ''"></pre>
                         </div>
                     </div>
                 </div>
