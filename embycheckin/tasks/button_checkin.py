@@ -73,10 +73,7 @@ class ButtonCheckinTask(TaskHandler[ButtonCheckinConfig]):
                 logger.info(f"[{ctx.task.name}] Sending '{cfg.trigger_command}' to {ctx.task.target}")
                 await client.send_message(ctx.task.target, cfg.trigger_command)
 
-                # 等待面板出现
-                await asyncio.sleep(cfg.wait_panel_seconds)
-
-                # 等待带按钮的消息
+                # 等待带按钮的消息（内部已包含足够的等待时间）
                 panel_msg = await self._wait_for_panel(ctx, router, bot_id, cfg)
 
                 if not panel_msg:
