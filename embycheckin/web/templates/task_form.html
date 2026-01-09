@@ -222,7 +222,23 @@
                 <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 mb-1">成功关键词</label>
                     <input type="text" x-model="params.button_checkin.success_keywords"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5">
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5"
+                        placeholder="签到成功,成功,获得,积分,恭喜,完成">
+                    <p class="mt-1 text-xs text-gray-500">多个关键词用逗号分隔</p>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">已签到关键词</label>
+                    <input type="text" x-model="params.button_checkin.already_checked_keywords"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5"
+                        placeholder="已签到,已经签到,今天已,重复,签到过了">
+                    <p class="mt-1 text-xs text-gray-500">多个关键词用逗号分隔</p>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">失败关键词</label>
+                    <input type="text" x-model="params.button_checkin.fail_keywords"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5"
+                        placeholder="失败,错误,无效">
+                    <p class="mt-1 text-xs text-gray-500">多个关键词用逗号分隔</p>
                 </div>
             </div>
         </div>
@@ -420,7 +436,9 @@ function taskForm() {
             button_checkin: {
                 trigger_command: {{ (task.params.trigger_command if task and task.params and task.type == 'button_checkin' else '/start') | tojson }},
                 button_text: {{ (task.params.button_text if task and task.params and task.type == 'button_checkin' else '签到') | tojson }},
-                success_keywords: {{ (','.join(task.params.success_keywords) if task and task.params and task.type == 'button_checkin' and task.params.success_keywords else '签到成功,成功,获得,积分,恭喜,完成,米币') | tojson }}
+                success_keywords: {{ (','.join(task.params.success_keywords) if task and task.params and task.type == 'button_checkin' and task.params.success_keywords else '签到成功,成功,获得,积分,恭喜,完成,米币') | tojson }},
+                already_checked_keywords: {{ (','.join(task.params.already_checked_keywords) if task and task.params and task.type == 'button_checkin' and task.params.already_checked_keywords else '已签到,已经签到,今天已,重复,签到过了') | tojson }},
+                fail_keywords: {{ (','.join(task.params.fail_keywords) if task and task.params and task.type == 'button_checkin' and task.params.fail_keywords else '失败,错误,无效') | tojson }}
             },
             send_message: {
                 message: {{ (task.params.message if task and task.params and task.type == 'send_message' else '') | tojson }},
@@ -479,8 +497,8 @@ function taskForm() {
                     trigger_command: p.trigger_command,
                     button_text: p.button_text,
                     success_keywords: p.success_keywords.split(',').map(s=>s.trim()).filter(s=>s),
-                    already_checked_keywords: ["已签到", "已经签到", "今天已", "重复"],
-                    fail_keywords: ["失败", "错误", "无效"],
+                    already_checked_keywords: p.already_checked_keywords.split(',').map(s=>s.trim()).filter(s=>s),
+                    fail_keywords: p.fail_keywords.split(',').map(s=>s.trim()).filter(s=>s),
                     timeout: 30
                 };
             } else if (this.form.type === 'send_message') {
