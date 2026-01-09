@@ -4,6 +4,166 @@
 
 {% block title %}{{ '编辑任务' if task else '新建任务' }} - EmbyCheckin{% endblock %}
 
+{% block head_scripts %}
+<script>
+function taskForm() {
+    return {
+        isEdit: {{ 'true' if task else 'false' }},
+        taskId: {{ task.id if task else 'null' }},
+        form: {
+            name: {{ (task.name if task else '') | tojson }},
+            type: {{ (task.type if task else 'bot_checkin') | tojson }},
+            account_id: {{ (task.account_id | string if task else '') | tojson }},
+            target: {{ (task.target if task else '') | tojson }},
+            schedule_cron: {{ (task.schedule_cron if task else '0 9 * * *') | tojson }},
+            timezone: {{ (task.timezone if task else 'Asia/Shanghai') | tojson }},
+            retries: {{ task.retries if task else 0 }},
+            max_runtime_seconds: {{ task.max_runtime_seconds if task else 120 }},
+            jitter_seconds: {{ task.jitter_seconds if task else 0 }},
+            enabled: {{ 'true' if (not task or task.enabled) else 'false' }}
+        },
+        params: {
+            bot_checkin: {
+                command: {{ (task.params.command if task and task.params and task.type == 'bot_checkin' else '/checkin') | tojson }},
+                timeout: {{ task.params.timeout if task and task.params and task.type == 'bot_checkin' else 60 }},
+                use_ai: {{ 'true' if (task and task.params and task.type == 'bot_checkin' and task.params.use_ai) else 'false' }},
+                success_keywords: {{ (','.join(task.params.success_patterns.keywords) if task and task.params and task.type == 'bot_checkin' and task.params.success_patterns else '签到成功,成功签到,获得,积分,恭喜,完成签到') | tojson }}
+            },
+            button_checkin: {
+                trigger_command: {{ (task.params.trigger_command if task and task.params and task.type == 'button_checkin' else '/start') | tojson }},
+                button_text: {{ (task.params.button_text if task and task.params and task.type == 'button_checkin' else '签到') | tojson }},
+                wait_panel_seconds: {{ task.params.wait_panel_seconds if task and task.params and task.type == 'button_checkin' and task.params.wait_panel_seconds is not none else 2.0 }},
+                success_keywords: {{ (','.join(task.params.success_keywords) if task and task.params and task.type == 'button_checkin' and task.params.success_keywords else '签到成功,成功,获得,积分,恭喜,完成,米币') | tojson }},
+                already_checked_keywords: {{ (','.join(task.params.already_checked_keywords) if task and task.params and task.type == 'button_checkin' and task.params.already_checked_keywords else '已签到,已经签到,今天已,重复,签到过了') | tojson }},
+                fail_keywords: {{ (','.join(task.params.fail_keywords) if task and task.params and task.type == 'button_checkin' and task.params.fail_keywords else '失败,错误,无效') | tojson }}
+            },
+            send_message: {
+                message: {{ (task.params.message if task and task.params and task.type == 'send_message' else '') | tojson }},
+                wait_for_reply: {{ 'true' if (task and task.params and task.type == 'send_message' and task.params.wait_for_reply) else 'false' }}
+            },
+            emby_keepalive: {
+                server_url: {{ (task.params.get('server_url', '') if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
+                username: {{ (task.params.get('username', '') if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
+                password: {{ (task.params.get('password', '') if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
+                api_key: {{ (task.params.get('api_key', '') if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
+                proxy_urls: {{ ('\n'.join(task.params.get('proxy_urls', [])) if task and task.params and task.type == 'emby_keepalive' and task.params.get('proxy_urls') else (task.params.get('proxy_url', '') if task and task.params and task.type == 'emby_keepalive' else '')) | tojson }},
+                proxy_test_url: {{ (task.params.get('proxy_test_url', 'https://www.google.com') if task and task.params and task.type == 'emby_keepalive' else 'https://www.google.com') | tojson }},
+                proxy_test_timeout: {{ task.params.get('proxy_test_timeout', 5) if task and task.params and task.type == 'emby_keepalive' else 5 }},
+                play_duration: {{ task.params.get('play_duration', 120) if task and task.params and task.type == 'emby_keepalive' else 120 }},
+                verify_ssl: {{ 'true' if (not task or task.type != 'emby_keepalive' or not task.params or task.params.get('verify_ssl', True) != False) else 'false' }}
+            },
+            exam_assistant: {
+                keywords: {{ (','.join(task.params.keywords) if task and task.params and task.type == 'exam_assistant' and task.params.keywords else '考核,题目,问答,答题,quiz,考试') | tojson }},
+                exclude_keywords: {{ (','.join(task.params.exclude_keywords) if task and task.params and task.type == 'exam_assistant' and task.params.exclude_keywords else '答案,正确') | tojson }},
+                lookback_seconds: {{ task.params.lookback_seconds if task and task.params and task.type == 'exam_assistant' else 300 }},
+                max_messages: {{ task.params.max_messages if task and task.params and task.type == 'exam_assistant' else 30 }},
+                ai_prompt_template: {{ (task.params.ai_prompt_template if task and task.params and task.type == 'exam_assistant' else '请直接回答以下问题,只给出答案,不需要解释:\n\n{question}') | tojson }},
+                auto_reply: {{ 'true' if (task and task.params and task.type == 'exam_assistant' and task.params.auto_reply) else 'false' }}
+            }
+        },
+
+        async submitForm() {
+            if (this.form.type !== 'emby_keepalive' && !this.form.account_id) {
+                showToast('请选择关联账号', 'error');
+                return;
+            }
+
+            if (this.form.type === 'emby_keepalive' && !this.params.emby_keepalive.server_url) {
+                showToast('请填写 Emby 服务器地址', 'error');
+                return;
+            }
+
+            let finalParams = {};
+            if (this.form.type === 'bot_checkin') {
+                const p = this.params.bot_checkin;
+                finalParams = {
+                    command: p.command,
+                    timeout: p.timeout,
+                    use_ai: p.use_ai,
+                    captcha_has_image: true,
+                    captcha_has_buttons: true,
+                    success_patterns: { keywords: p.success_keywords.split(',').map(s=>s.trim()).filter(s=>s) },
+                    already_checked_patterns: { keywords: ["今天已签到", "已经签到", "今日已签到", "已签到", "重复签到"] },
+                    fail_patterns: { keywords: ["失败", "错误", "验证码错误", "回答错误", "超时", "过期", "无效"] },
+                    ignore_patterns: { keywords: ["会话已取消", "没有活跃的会话"] },
+                    account_error_patterns: { keywords: ["黑名单", "封禁", "禁止", "未注册", "不存在", "未绑定"] }
+                };
+            } else if (this.form.type === 'button_checkin') {
+                const p = this.params.button_checkin;
+                finalParams = {
+                    trigger_command: p.trigger_command,
+                    button_text: p.button_text,
+                    wait_panel_seconds: p.wait_panel_seconds || 2.0,
+                    success_keywords: p.success_keywords.split(',').map(s=>s.trim()).filter(s=>s),
+                    already_checked_keywords: p.already_checked_keywords.split(',').map(s=>s.trim()).filter(s=>s),
+                    fail_keywords: p.fail_keywords.split(',').map(s=>s.trim()).filter(s=>s),
+                    timeout: 30
+                };
+            } else if (this.form.type === 'send_message') {
+                finalParams = {
+                    message: this.params.send_message.message,
+                    wait_for_reply: this.params.send_message.wait_for_reply,
+                    timeout: 30
+                };
+            } else if (this.form.type === 'emby_keepalive') {
+                const p = this.params.emby_keepalive;
+                const proxyUrls = p.proxy_urls ? p.proxy_urls.split('\n').map(s=>s.trim()).filter(s=>s) : null;
+                finalParams = {
+                    server_url: p.server_url,
+                    username: p.username || null,
+                    password: p.password || null,
+                    api_key: p.api_key || null,
+                    proxy_urls: proxyUrls && proxyUrls.length > 0 ? proxyUrls : null,
+                    proxy_test_url: p.proxy_test_url || 'https://www.google.com',
+                    proxy_test_timeout: p.proxy_test_timeout || 5,
+                    play_duration: p.play_duration,
+                    verify_ssl: p.verify_ssl
+                };
+            } else if (this.form.type === 'exam_assistant') {
+                const p = this.params.exam_assistant;
+                finalParams = {
+                    keywords: p.keywords.split(',').map(s=>s.trim()).filter(s=>s),
+                    exclude_keywords: p.exclude_keywords.split(',').map(s=>s.trim()).filter(s=>s),
+                    lookback_seconds: p.lookback_seconds,
+                    max_messages: p.max_messages,
+                    ai_prompt_template: p.ai_prompt_template,
+                    auto_reply: p.auto_reply
+                };
+            }
+
+            const payload = {
+                ...this.form,
+                account_id: this.form.account_id ? parseInt(this.form.account_id) : null,
+                target: this.form.target || null,
+                params: finalParams
+            };
+
+            const url = this.taskId ? '/api/v1/tasks/' + this.taskId : '/api/v1/tasks';
+            const method = this.taskId ? 'PATCH' : 'POST';
+
+            try {
+                const resp = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (resp.ok) {
+                    showToast('保存成功');
+                    setTimeout(() => window.location.href = '/', 500);
+                } else {
+                    const err = await resp.json();
+                    showToast('保存失败: ' + (err.detail || '未知错误'), 'error');
+                }
+            } catch (e) {
+                showToast('网络错误', 'error');
+            }
+        }
+    }
+}
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-5xl mx-auto" x-data="taskForm()">
 
