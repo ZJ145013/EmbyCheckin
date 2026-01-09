@@ -42,10 +42,10 @@ function taskForm() {
                 wait_for_reply: {{ 'true' if (task and task.params and task.type == 'send_message' and task.params.wait_for_reply) else 'false' }}
             },
             emby_keepalive: {
-                server_url: {{ (task.params.get('server_url', '') if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
-                username: {{ (task.params.get('username', '') if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
-                password: {{ (task.params.get('password', '') if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
-                api_key: {{ (task.params.get('api_key', '') if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
+                server_url: {{ ((task.params.get('server_url') or '') if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
+                username: {{ ((task.params.get('username') or '') if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
+                password: {{ ((task.params.get('password') or '') if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
+                api_key: {{ ((task.params.get('api_key') or '') if task and task.params and task.type == 'emby_keepalive' else '') | tojson }},
                 proxy_urls: {{ ('\n'.join(task.params.get('proxy_urls', [])) if task and task.params and task.type == 'emby_keepalive' and task.params.get('proxy_urls') else (task.params.get('proxy_url', '') if task and task.params and task.type == 'emby_keepalive' else '')) | tojson }},
                 proxy_test_url: {{ (task.params.get('proxy_test_url', 'https://www.google.com') if task and task.params and task.type == 'emby_keepalive' else 'https://www.google.com') | tojson }},
                 proxy_test_timeout: {{ task.params.get('proxy_test_timeout', 5) if task and task.params and task.type == 'emby_keepalive' else 5 }},
