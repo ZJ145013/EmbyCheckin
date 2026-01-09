@@ -32,7 +32,7 @@ function taskForm() {
             button_checkin: {
                 trigger_command: {{ (task.params.trigger_command if task and task.params and task.type == 'button_checkin' else '/start') | tojson }},
                 button_text: {{ (task.params.button_text if task and task.params and task.type == 'button_checkin' else '签到') | tojson }},
-                wait_panel_seconds: {{ task.params.wait_panel_seconds if task and task.params and task.type == 'button_checkin' and task.params.wait_panel_seconds is not none else 2.0 }},
+                wait_panel_seconds: {{ (task.params.get('wait_panel_seconds', 2.0) if task and task.params and task.type == 'button_checkin' else 2.0) }},
                 success_keywords: {{ (','.join(task.params.success_keywords) if task and task.params and task.type == 'button_checkin' and task.params.success_keywords else '签到成功,成功,获得,积分,恭喜,完成,米币') | tojson }},
                 already_checked_keywords: {{ (','.join(task.params.already_checked_keywords) if task and task.params and task.type == 'button_checkin' and task.params.already_checked_keywords else '已签到,已经签到,今天已,重复,签到过了') | tojson }},
                 fail_keywords: {{ (','.join(task.params.fail_keywords) if task and task.params and task.type == 'button_checkin' and task.params.fail_keywords else '失败,错误,无效') | tojson }}
