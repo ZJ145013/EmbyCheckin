@@ -7,25 +7,25 @@
 {% block content %}
 <div class="space-y-8 max-w-7xl mx-auto">
     <!-- Stats Overview -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div class="bg-white rounded-2xl shadow-sm p-6 border border-slate-100 relative overflow-hidden group">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+        <div class="bg-white rounded-2xl shadow-sm p-5 md:p-6 border border-slate-100 relative overflow-hidden group">
             <div class="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-indigo-50/50 to-transparent"></div>
             <div class="flex items-center justify-between">
                 <div class="relative z-10">
-                    <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">总任务数</p>
-                    <p class="text-3xl font-bold text-slate-900 mt-2">{{ tasks|length }}</p>
+                    <p class="text-xs md:text-sm font-medium text-slate-500 uppercase tracking-wider">总任务数</p>
+                    <p class="text-2xl md:text-3xl font-bold text-slate-900 mt-2">{{ tasks|length }}</p>
                 </div>
                 <div class="bg-indigo-50 p-3 rounded-xl group-hover:scale-110 transition-transform duration-300">
                     <i class="ri-stack-line text-indigo-600 text-2xl"></i>
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-2xl shadow-sm p-6 border border-slate-100 relative overflow-hidden group">
+        <div class="bg-white rounded-2xl shadow-sm p-5 md:p-6 border border-slate-100 relative overflow-hidden group">
             <div class="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-emerald-50/50 to-transparent"></div>
             <div class="flex items-center justify-between">
                 <div class="relative z-10">
-                    <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">运行中任务</p>
-                    <p class="text-3xl font-bold text-emerald-600 mt-2">
+                    <p class="text-xs md:text-sm font-medium text-slate-500 uppercase tracking-wider">运行中任务</p>
+                    <p class="text-2xl md:text-3xl font-bold text-emerald-600 mt-2">
                         {{ tasks | selectattr("enabled") | list | length }}
                     </p>
                 </div>
@@ -34,12 +34,12 @@
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-2xl shadow-sm p-6 border border-slate-100 relative overflow-hidden group">
+        <div class="bg-white rounded-2xl shadow-sm p-5 md:p-6 border border-slate-100 relative overflow-hidden group">
             <div class="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-blue-50/50 to-transparent"></div>
             <div class="flex items-center justify-between">
                 <div class="relative z-10">
-                    <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">最近执行</p>
-                    <p class="text-3xl font-bold text-blue-600 mt-2">{{ recent_runs|length }}</p>
+                    <p class="text-xs md:text-sm font-medium text-slate-500 uppercase tracking-wider">最近执行</p>
+                    <p class="text-2xl md:text-3xl font-bold text-blue-600 mt-2">{{ recent_runs|length }}</p>
                 </div>
                 <div class="bg-blue-50 p-3 rounded-xl group-hover:scale-110 transition-transform duration-300">
                     <i class="ri-history-line text-blue-600 text-2xl"></i>
@@ -49,10 +49,10 @@
     </div>
 
     <!-- Tasks Header -->
-    <div class="flex items-center justify-between">
-        <h3 class="text-xl font-bold text-slate-800">任务列表</h3>
-        <a href="/tasks/new" class="inline-flex items-center px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-indigo-600 transition-all shadow-md shadow-indigo-200 hover:shadow-lg hover:-translate-y-0.5">
-            <i class="ri-add-line mr-1.5"></i>新建任务
+    <div class="flex items-center justify-between gap-3">
+        <h3 class="text-lg md:text-xl font-bold text-slate-800">任务列表</h3>
+        <a href="/tasks/new" class="inline-flex items-center px-4 md:px-5 py-3 md:py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-indigo-600 transition-all shadow-md shadow-indigo-200 hover:shadow-lg hover:-translate-y-0.5 min-h-[44px] touch-manipulation">
+            <i class="ri-add-line mr-1.5"></i><span class="hidden sm:inline">新建任务</span><span class="sm:hidden">新建</span>
         </a>
     </div>
 
@@ -68,7 +68,7 @@
         </a>
     </div>
     {% else %}
-    <div x-data="{ showLogsModal: false, currentTaskId: null, currentRunId: null, logs: [], loading: false, eventSource: null, streamDone: false, fullResult: null }" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div x-data="{ showLogsModal: false, currentTaskId: null, currentRunId: null, logs: [], loading: false, eventSource: null, streamDone: false, fullResult: null }" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {% for task in tasks %}
         <div class="bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 flex flex-col h-full group">
             <!-- Card Header -->
@@ -206,13 +206,13 @@
             </div>
 
             <!-- Card Footer -->
-            <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 rounded-b-2xl flex justify-between items-center group-hover:bg-slate-50/80 transition-colors">
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 rounded-b-2xl flex justify-between items-center gap-3 group-hover:bg-slate-50/80 transition-colors">
                 <button onclick="toggleTask({{ task.id }}, {{ 'false' if task.enabled else 'true' }})"
-                    class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors focus:outline-none flex items-center {{ 'bg-white text-rose-600 border border-rose-200 hover:bg-rose-50' if task.enabled else 'bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50' }}">
+                    class="px-4 py-2.5 md:py-1.5 rounded-lg text-sm font-semibold transition-colors focus:outline-none flex items-center min-h-[44px] md:min-h-0 touch-manipulation {{ 'bg-white text-rose-600 border border-rose-200 hover:bg-rose-50' if task.enabled else 'bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50' }}">
                     <i class="{{ 'ri-stop-fill' if task.enabled else 'ri-play-fill' }} mr-1"></i>
                     {{ '停止' if task.enabled else '启用' }}
                 </button>
-                <button onclick="runTask({{ task.id }})" class="inline-flex items-center px-4 py-1.5 border border-transparent text-xs font-bold rounded-lg shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all active:scale-95">
+                <button onclick="runTask({{ task.id }})" class="inline-flex items-center px-5 py-2.5 md:py-1.5 border border-transparent text-sm font-bold rounded-lg shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all active:scale-95 min-h-[44px] md:min-h-0 touch-manipulation">
                     <i class="ri-rocket-fill mr-1.5"></i>运行
                 </button>
             </div>
@@ -223,7 +223,7 @@
         <div x-show="showLogsModal"
              x-cloak
              @click.self="showLogsModal = false; if(eventSource) { eventSource.close(); eventSource = null; }"
-             class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+             class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4"
              x-transition:enter="transition ease-out duration-200"
              x-transition:enter-start="opacity-0"
              x-transition:enter-end="opacity-100"
@@ -231,28 +231,28 @@
              x-transition:leave-start="opacity-100"
              x-transition:leave-end="opacity-0">
             <div @click.stop
-                 class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full mx-4 max-h-[80vh] flex flex-col"
+                 class="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-3xl sm:mx-4 max-h-[90vh] sm:max-h-[80vh] flex flex-col"
                  x-transition:enter="transition ease-out duration-200"
-                 x-transition:enter-start="opacity-0 scale-95"
-                 x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
                  x-transition:leave="transition ease-in duration-150"
-                 x-transition:leave-start="opacity-100 scale-100"
-                 x-transition:leave-end="opacity-0 scale-95">
+                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-4 sm:scale-95">
                 <!-- Modal Header -->
-                <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                    <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <div class="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-200">
+                    <h3 class="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
                         <i class="ri-terminal-box-line text-indigo-600"></i>
                         最新日志
-                        <span x-show="loading" class="text-xs font-normal text-slate-500">(实时流式加载中...)</span>
+                        <span x-show="loading" class="text-xs sm:text-xs font-normal text-slate-500">(实时流式加载中...)</span>
                     </h3>
                     <button @click="showLogsModal = false; if(eventSource) { eventSource.close(); eventSource = null; }"
-                            class="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100 transition-colors">
+                            class="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation">
                         <i class="ri-close-line text-xl"></i>
                     </button>
                 </div>
 
                 <!-- Modal Body -->
-                <div class="flex-1 overflow-hidden p-6">
+                <div class="flex-1 overflow-hidden p-4 sm:p-6">
                     <div x-show="loading && logs.length === 0 && !fullResult" class="flex items-center justify-center h-full">
                         <div class="text-center">
                             <i class="ri-loader-4-line animate-spin text-indigo-500 text-4xl mb-3"></i>
@@ -268,7 +268,7 @@
                                 </div>
                                 <h4 class="text-sm font-semibold text-slate-700">运行日志</h4>
                             </div>
-                            <div class="bg-slate-900 rounded-xl p-4 overflow-y-auto text-sm font-mono max-h-80" x-ref="logContainer">
+                            <div class="bg-slate-900 rounded-xl p-3 sm:p-4 overflow-y-auto text-xs sm:text-sm font-mono max-h-80" x-ref="logContainer">
                                 <template x-for="(log, index) in logs" :key="index">
                                     <div x-text="log" class="text-slate-300 mb-1"></div>
                                 </template>
@@ -282,7 +282,7 @@
                                 </div>
                                 <h4 class="text-sm font-semibold text-slate-700">其他数据</h4>
                             </div>
-                            <pre class="text-xs font-mono text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-xl p-4 border border-slate-200 overflow-y-auto max-h-96" x-text="JSON.stringify(fullResult.task_result, null, 2)"></pre>
+                            <pre class="text-xs font-mono text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-xl p-3 sm:p-4 border border-slate-200 overflow-y-auto max-h-96" x-text="JSON.stringify(fullResult.task_result, null, 2)"></pre>
                         </div>
                     </div>
                 </div>
