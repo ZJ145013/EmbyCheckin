@@ -97,7 +97,7 @@ function taskForm() {
                     success_keywords: p.success_keywords.split(',').map(s=>s.trim()).filter(s=>s),
                     already_checked_keywords: p.already_checked_keywords.split(',').map(s=>s.trim()).filter(s=>s),
                     fail_keywords: p.fail_keywords.split(',').map(s=>s.trim()).filter(s=>s),
-                    timeout: 30
+                    timeout: 60
                 };
             } else if (this.form.type === 'send_message') {
                 finalParams = {

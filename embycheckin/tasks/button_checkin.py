@@ -22,7 +22,7 @@ class ButtonCheckinConfig(BaseModel):
     wait_panel_seconds: float = Field(default=2.0, ge=0, description="等待面板出现的时间(秒)")
     random_delay_min: float = Field(default=1.0, ge=0, description="点击前最小随机延迟(秒)")
     random_delay_max: float = Field(default=3.0, ge=0, description="点击前最大随机延迟(秒)")
-    timeout: int = Field(default=30, ge=1, description="等待响应超时时间(秒)")
+    timeout: int = Field(default=60, ge=1, description="等待响应超时时间(秒)")
 
     # 结果识别
     success_keywords: list[str] = Field(
