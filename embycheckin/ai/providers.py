@@ -1,10 +1,48 @@
 from __future__ import annotations
 
 import base64
+from io import BytesIO
 from typing import Any, Optional
 
 import httpx
 from loguru import logger
+
+
+def detect_image_format(image_bytes: bytes) -> str:
+    """检测图片格式并返回正确的 MIME type"""
+    if image_bytes[:8] == b'\x89PNG\r\n\x1a\n':
+        return "image/png"
+    if image_bytes[:3] == b'\xff\xd8\xff':
+        return "image/jpeg"
+    if image_bytes[:3] == b'GIF':
+        return "image/gif"
+    if image_bytes[:4] == b'RIFF' and image_bytes[8:12] == b'WEBP':
+        return "image/webp"
+    return "image/jpeg"
+
+
+def convert_to_jpeg(image_bytes: bytes) -> bytes:
+    """将图片转换为 JPEG 格式"""
+    try:
+        from PIL import Image
+
+        img = Image.open(BytesIO(image_bytes))
+
+        if img.mode in ('RGBA', 'LA', 'P'):
+            background = Image.new('RGB', img.size, (255, 255, 255))
+            if img.mode == 'P':
+                img = img.convert('RGBA')
+            background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+            img = background
+        elif img.mode != 'RGB':
+            img = img.convert('RGB')
+
+        output = BytesIO()
+        img.save(output, format='JPEG', quality=95)
+        return output.getvalue()
+    except Exception as e:
+        logger.warning(f"Failed to convert image to JPEG: {e}")
+        return image_bytes
 
 
 async def analyze_captcha(
@@ -60,8 +98,13 @@ async def _call_gemini(
 
     parts = [{"text": prompt}]
     if image_bytes:
+        mime_type = detect_image_format(image_bytes)
+        if mime_type != "image/jpeg":
+            logger.info(f"Converting image from {mime_type} to JPEG")
+            image_bytes = convert_to_jpeg(image_bytes)
+            mime_type = "image/jpeg"
         image_b64 = base64.b64encode(image_bytes).decode("utf-8")
-        parts.append({"inline_data": {"mime_type": "image/jpeg", "data": image_b64}})
+        parts.append({"inline_data": {"mime_type": mime_type, "data": image_b64}})
 
     payload = {"contents": [{"parts": parts}]}
     params = {"key": settings.gemini_api_key}
@@ -98,8 +141,13 @@ async def _call_openai(
 
     content = [{"type": "text", "text": prompt}]
     if image_bytes:
+        mime_type = detect_image_format(image_bytes)
+        if mime_type != "image/jpeg":
+            logger.info(f"Converting image from {mime_type} to JPEG for OpenAI")
+            image_bytes = convert_to_jpeg(image_bytes)
+            mime_type = "image/jpeg"
         image_b64 = base64.b64encode(image_bytes).decode("utf-8")
-        content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}})
+        content.append({"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{image_b64}"}})
 
     payload = {
         "model": settings.openai_model,
@@ -142,8 +190,13 @@ async def _call_claude(
 
     content = []
     if image_bytes:
+        mime_type = detect_image_format(image_bytes)
+        if mime_type != "image/jpeg":
+            logger.info(f"Converting image from {mime_type} to JPEG for Claude")
+            image_bytes = convert_to_jpeg(image_bytes)
+            mime_type = "image/jpeg"
         image_b64 = base64.b64encode(image_bytes).decode("utf-8")
-        content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": image_b64}})
+        content.append({"type": "image", "source": {"type": "base64", "media_type": mime_type, "data": image_b64}})
     content.append({"type": "text", "text": prompt})
 
     payload = {
