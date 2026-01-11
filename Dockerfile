@@ -4,7 +4,12 @@ WORKDIR /app
 
 # Install sing-box for advanced proxy protocols (ss/vless/hysteria2)
 ARG SINGBOX_VERSION=1.10.7
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    libjpeg62-turbo \
+    libpng16-16 \
+    libwebp7 \
     && curl -fsSL "https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VERSION}/sing-box-${SINGBOX_VERSION}-linux-amd64.tar.gz" \
        | tar -xzf - -C /tmp \
     && mv /tmp/sing-box-${SINGBOX_VERSION}-linux-amd64/sing-box /usr/local/bin/ \
